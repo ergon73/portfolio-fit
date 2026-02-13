@@ -1,4 +1,4 @@
-# 🚀 РУКОВОДСТВО: Расширенный Скрипт Оценки v2.2
+# 🚀 РУКОВОДСТВО: Расширенный Скрипт Оценки v2.3
 
 ## 📊 Что Изменилось?
 
@@ -9,18 +9,25 @@
 - Покрытие: 40-50%
 
 ### Версия v2.0
-- **18 критериев** (+300%)
+- **17 критериев** (+300%)
 - **50 баллов максимум** (+400%)
 - **Проверяет качество кода** ✅
-- **Покрытие: 95%+**
+- **Улучшенное покрытие сигналов**
 
-### Новая Версия (v2.2) 🆕
+### Новая Версия (v2.3) 🆕
 - Всё из v2.0 +
 - **GitHub интеграция** — оценка аккаунта по username
 - **Автоматическое клонирование** репозиториев
 - **Командная строка** — аргументы для автоматизации
 - **Двуязычные комментарии** (русский + английский)
 - **Улучшенная обработка ошибок**
+- **Прозрачные метаданные критериев** (`status`, `method`, `confidence`, `note`)
+- **Учёт полноты данных** (`data_coverage_percent`)
+- **`unknown`-статус вместо фиктивных бонусов**
+- **Внешний конфиг scoring** (`portfolio_fit/scoring_config.json`)
+- **Explainability и actionable recommendations** в отчётах
+- **Quick-fix matrix** (impact/effort)
+- **Before/after compare mode** (`--compare previous.json`)
 
 ---
 
@@ -63,6 +70,62 @@ python enhanced_evaluate_portfolio.py --path ./my_repos
 python enhanced_evaluate_portfolio.py -p ./my_repos
 ```
 
+### 4. Сравнение с предыдущим запуском
+
+```bash
+python enhanced_evaluate_portfolio.py --path ./my_repos --compare portfolio_evaluation_local.json
+```
+
+### 5. Калибровка модели по golden set
+
+```bash
+python calibrate_scoring_model.py --labels calibration/golden_set_template.csv --results portfolio_evaluation_local.json
+```
+
+### 6. Подготовка golden set и предложения по весам
+
+```bash
+python prepare_golden_set.py --results portfolio_evaluation_local.json --output calibration/golden_set_v1.csv --sample-size 36 --autofill
+python tune_scoring_config.py --labels calibration/golden_set_v1.csv --results portfolio_evaluation_local.json --output calibration/scoring_config_patch_v1.json
+```
+
+### 7. Job Fit: соответствие вакансии
+
+```bash
+python job_fit_analysis.py --evaluation-json portfolio_evaluation_local.json --jd-file job_description.txt --output-prefix job_fit_local
+```
+
+### 8. Job Fit benchmark по нескольким JD
+
+```bash
+python run_job_fit_benchmark.py --evaluation-json portfolio_evaluation_local.json --jd-dir calibration/jd_benchmark --output-prefix calibration/job_fit_benchmark_local
+```
+
+### 9. JSON contract schema и проверка результата
+
+```bash
+python generate_portfolio_schema.py
+python validate_evaluation_contract.py --input portfolio_evaluation_local.json
+```
+
+### 10. Персональная перекалибровка (profile-based)
+
+```bash
+# Шаг 1: bootstrap разметки
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --prepare-golden-set --autofill --only-prepare
+
+# Шаг 2: вручную выставьте expert_score в calibration/profiles/my_view/labels/golden_set.csv
+
+# Шаг 3: прогон перекалибровки профиля
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json
+
+# Шаг 4 (опционально): применить профиль в активный scoring_config
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --apply-to portfolio_fit/scoring_config.json
+```
+
+Профильный запуск сохраняет отдельные артефакты в `calibration/profiles/<profile>/`
+и не перезаписывает baseline-конфиг без явного `--apply-to`.
+
 ---
 
 ## 📋 ВСЕ АРГУМЕНТЫ КОМАНДНОЙ СТРОКИ
@@ -75,16 +138,18 @@ python enhanced_evaluate_portfolio.py -p ./my_repos
 | `--token TOKEN` | `-t` | GitHub API токен (увеличивает лимит запросов) |
 | `--max-repos N` | `-m` | Максимум репозиториев для клонирования (по умолчанию 100) |
 | `--keep-repos` | — | Не удалять клонированные репозитории |
+| `--recursive` | — | Рекурсивно искать репозитории во вложенных папках (`--path`) |
+| `--compare JSON_FILE` | — | Сравнить текущий запуск с предыдущим JSON-отчётом |
 
 ---
 
-## 🎯 18 КРИТЕРИЕВ В ДЕТАЛЯХ
+## 🎯 17 КРИТЕРИЕВ В ДЕТАЛЯХ
 
 ### БЛОК 1: CODE QUALITY & STABILITY (15 баллов)
 
 #### 1. Test Coverage % (5 баллов)
 - **Что проверяет:** Процент строк кода покрытых тестами
-- **Как работает:** Ищет `.coverage` файл или `pytest --cov` результаты
+- **Как работает:** Читает `coverage.xml`/`htmlcov/status.json`; при отсутствии отчёта использует эвристику по наличию тестов
 - **Пороги:**
   - 5 баллов: ≥80%
   - 4 балла: 60-80%
@@ -93,8 +158,8 @@ python enhanced_evaluate_portfolio.py -p ./my_repos
   - 0 баллов: <20% или нет тестов
 
 #### 2. Code Complexity (5 баллов)
-- **Что проверяет:** Циклическая сложность функций (radon cc)
-- **Как работает:** Анализирует структуру кода
+- **Что проверяет:** Цикломатическую сложность функций (AST proxy)
+- **Как работает:** Строит AST и оценивает decision points для функций
 - **Пороги:**
   - 5 баллов: Low (1-5)
   - 4 балла: Low-Medium (6-10)
@@ -117,14 +182,15 @@ python enhanced_evaluate_portfolio.py -p ./my_repos
 ### БЛОК 2: SECURITY & DEPENDENCIES (10 баллов)
 
 #### 4. Dependency Vulnerabilities (5 баллов)
-- **Что проверяет:** Количество CVE уязвимостей
-- **Как работает:** Проверяет requirements на известные уязвимости
+- **Что проверяет:** Риски зависимостей (по доступным данным)
+- **Как работает:** Читает `pip-audit-report.json` при наличии; иначе использует осторожную эвристику
 - **Пороги:**
-  - 5 баллов: 0 уязвимостей
+  - 5 баллов: 0 уязвимостей (если есть отчет сканера)
   - 4 балла: 1-2
   - 3 балла: 3-5
   - 2 балла: 6-10
   - 0 баллов: >10
+  - `unknown`: если нет манифеста зависимостей
 
 #### 5. Dependency Health (3 балла)
 - **Что проверяет:** Количество зависимостей и их актуальность
@@ -322,8 +388,8 @@ python enhanced_evaluate_portfolio.py -p ~/github
 
 ```
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v2.2 / ENHANCED PORTFOLIO EVALUATION SCRIPT v2.2
-18 Критериев / 50 Баллов - Production Readiness Score Enhanced
+РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v2.3 / ENHANCED PORTFOLIO EVALUATION SCRIPT v2.3
+17 Критериев / 50 Баллов - Production Readiness Score Enhanced
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 🔍 Получение списка репозиториев для username...
@@ -348,7 +414,7 @@ python enhanced_evaluate_portfolio.py -p ~/github
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ТОП-20 ПРОЕКТОВ ДЛЯ ПОРТФОЛИО @username
 TOP-20 PROJECTS FOR PORTFOLIO @username
-(по Product Readiness Score v2.2 / by Product Readiness Score v2.2)
+(по Product Readiness Score v2.3 / by Product Readiness Score v2.3)
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
  1. github.com/username/best-project           32.50/50 | ⭐⭐⭐⭐ Отличный / Excellent
@@ -389,15 +455,16 @@ TOP-20 PROJECTS FOR PORTFOLIO @username
 ✅ Наличие файлов (Dockerfile, requirements.txt, и т.д.)
 ✅ Дату последнего коммита (git log)
 ✅ Версионирование (version в setup.py)
-✅ Наличие docstrings и type hints (regex анализ)
+✅ Наличие docstrings и type hints (AST анализ)
 ✅ Наличие логирования
 ✅ Наличие GitHub Actions workflows
+✅ Статус данных по каждому критерию (`known/unknown`)
+✅ Метод расчета по каждому критерию (`measured/heuristic`)
 
 ### Что НЕ Проверяет Скрипт?
 
-⚠️ **Реальный % test coverage** (нужно запустить `pytest --cov`)
-⚠️ **Реальный code complexity** (нужно запустить `radon cc`)
-⚠️ **Уязвимости зависимостей** (нужно запустить `pip-audit`)
+⚠️ **Глубокий runtime-анализ тестов** (если нет coverage-артефактов)
+⚠️ **Полноценный security scan on-demand** (если нет `pip-audit-report.json`)
 ⚠️ **Работоспособность Docker** (нужно запустить `docker build`)
 
 ### GitHub API Лимиты
@@ -425,10 +492,10 @@ python enhanced_evaluate_portfolio.py -g username -t ghp_your_token
 А: Скрипт оценивает "production readiness" - готовность к показу. Рабочий код ≠ production-ready код. Нужны: тесты, документация, CI/CD.
 
 **В: Где я могу увидеть детальную оценку по каждому критерию?**
-А: Откройте файл `portfolio_evaluation_*.json` - там полные данные по всем 18 критериям для каждого проекта.
+А: Откройте файл `portfolio_evaluation_*.json` - там полные данные по всем 17 критериям для каждого проекта.
 
 **В: Как мне улучшить мой score?**
-А: Читайте в JSON файле какие критерии дают мало баллов и работайте над ними. Например, если test_coverage=1.0, добавьте тесты.
+А: Смотрите `recommendations` и `quick_fixes` в JSON, плюс секцию recommendations в TXT-отчете.
 
 **В: Стоит ли маркировать проект если score <20?**
 А: Не рекомендуется. Проекты с score <20 требуют значительных доработок. Сначала доведите до 25+.
@@ -456,6 +523,6 @@ python enhanced_evaluate_portfolio.py -g username -t ghp_your_token
 
 ---
 
-**Дата:** 10 января 2026
-**Версия:** 2.2
+**Дата:** 13 февраля 2026
+**Версия:** 2.3
 **Статус:** Production Ready

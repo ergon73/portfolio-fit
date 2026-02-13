@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "portfolio-fit"
+version = "2.3.0"
+description = "CLI tool for evaluating Python portfolio repositories with transparent scoring metadata."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+  { name = "ergon73" }
+]
+keywords = ["portfolio", "github", "scoring", "evaluation", "cli"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.15.1",
+  "black>=26.1.0",
+  "mypy>=1.19.1"
+]
+
+[tool.setuptools]
+packages = ["portfolio_fit"]
+py-modules = ["enhanced_evaluate_portfolio", "clone_all_repos", "calibrate_scoring_model", "prepare_golden_set", "tune_scoring_config", "job_fit_analysis", "run_job_fit_benchmark", "generate_portfolio_schema", "validate_evaluation_contract", "recalibrate_profile"]
+
+[tool.setuptools.package-data]
+portfolio_fit = ["scoring_config.json"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+include = "\\.pyi?$"
+extend-exclude = "calibration/ergon73_repos/"
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+exclude = ["portfolio_evaluation_*.json", "portfolio_report_*.txt", "calibration/ergon73_repos"]
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.mypy]
+python_version = "3.9"
+pretty = true
+show_error_codes = true
+ignore_missing_imports = true
+files = ["portfolio_fit", "enhanced_evaluate_portfolio.py", "clone_all_repos.py", "calibrate_scoring_model.py", "prepare_golden_set.py", "tune_scoring_config.py", "job_fit_analysis.py", "run_job_fit_benchmark.py", "generate_portfolio_schema.py", "validate_evaluation_contract.py", "recalibrate_profile.py", "tests"]

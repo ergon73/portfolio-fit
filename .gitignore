@@ -46,6 +46,7 @@ Thumbs.db
 # Клонированные репозитории (если не сохранены явно)
 repos/
 github_*/
+calibration/ergon73_repos/
 
 # Персональные данные / Personal data
 portfolio_evaluation_*.json
@@ -57,3 +58,50 @@ portfolio_report_*.txt
 !*.txt
 analysis_*.txt
 report_*.txt
+portfolio_evaluation_*.json
+portfolio_report_*.txt
+portfolio_compare_*.json
+portfolio_compare_*.txt
+calibration/calibration_*.json
+calibration/calibration_*.txt
+calibration/profiles/
+
+# Publish cleanup: local working/state folders
+ACTUAL-PROJ-STATE-13022026/
+
+# Keep calibration templates and JD fixtures, ignore personal artifacts
+calibration/*ergon73*
+calibration/job_fit_*_sample.*
+calibration/scoring_config_patch_*.json
+calibration/scoring_config_baseline_live.json
+calibration/scoring_config_before_tuning*.json
+calibration/scoring_config_live_backup*.json
+
+# Local tool caches
+.mypy_cache/
+.pytest_cache/
+
+# Security and local secrets (do not publish)
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+**/.ssh/
+
+# Local runtime artifacts
+portfolio_evaluation_local.json
+portfolio_report_local.txt
+portfolio_compare_local.json
+portfolio_compare_local.txt
+portfolio_evaluation_*_contract_errors.txt
+
+# Local calibration/operator backups
+calibration/scoring_config_live_backup*.json
+calibration/scoring_config_baseline_live.json
+calibration/scoring_config_before_tuning*.json

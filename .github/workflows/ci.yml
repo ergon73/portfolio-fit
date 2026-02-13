@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: |
+          ruff check .
+
+      - name: Format check (black)
+        run: |
+          black --check .
+
+      - name: Type check (mypy)
+        run: |
+          mypy
+
+      - name: Compile check
+        run: |
+          python -m py_compile enhanced_evaluate_portfolio.py clone_all_repos.py calibrate_scoring_model.py prepare_golden_set.py tune_scoring_config.py job_fit_analysis.py run_job_fit_benchmark.py generate_portfolio_schema.py validate_evaluation_contract.py recalibrate_profile.py portfolio_fit/scoring.py portfolio_fit/discovery.py portfolio_fit/github_fetcher.py portfolio_fit/reporting.py portfolio_fit/cli.py portfolio_fit/calibration.py portfolio_fit/tuning.py portfolio_fit/job_fit.py portfolio_fit/job_fit_benchmark.py portfolio_fit/schema_contract.py portfolio_fit/recalibration.py
+
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -s tests -v

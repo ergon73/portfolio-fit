@@ -1,0 +1,1158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ergon73.github.io/portfolio-fit/schemas/portfolio_evaluation.schema.json",
+  "title": "Portfolio evaluation result list",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "repo",
+      "path",
+      "total_score",
+      "max_score",
+      "raw_max_score",
+      "known_score",
+      "known_max_score",
+      "data_coverage_percent",
+      "data_quality_status",
+      "data_quality_warnings",
+      "category",
+      "criteria_meta",
+      "blocks_meta",
+      "criteria_explainability",
+      "recommendations",
+      "quick_fixes",
+      "test_coverage",
+      "code_complexity",
+      "type_hints",
+      "vulnerabilities",
+      "dep_health",
+      "security_scanning",
+      "project_activity",
+      "version_stability",
+      "changelog",
+      "docstrings",
+      "logging",
+      "structure",
+      "readme",
+      "api_docs",
+      "getting_started",
+      "docker",
+      "cicd",
+      "block1_code_quality",
+      "block2_security",
+      "block3_maintenance",
+      "block4_architecture",
+      "block5_documentation",
+      "block6_devops"
+    ],
+    "properties": {
+      "repo": {
+        "type": "string",
+        "minLength": 1
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1
+      },
+      "total_score": {
+        "type": "number",
+        "minimum": 0
+      },
+      "max_score": {
+        "type": "number",
+        "minimum": 0
+      },
+      "raw_max_score": {
+        "type": "number",
+        "minimum": 0
+      },
+      "known_score": {
+        "type": "number",
+        "minimum": 0
+      },
+      "known_max_score": {
+        "type": "number",
+        "minimum": 0
+      },
+      "data_coverage_percent": {
+        "type": "number",
+        "minimum": 0
+      },
+      "data_quality_status": {
+        "type": "string",
+        "enum": [
+          "green",
+          "yellow",
+          "red"
+        ]
+      },
+      "data_quality_warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "category": {
+        "type": "string",
+        "minLength": 1
+      },
+      "criteria_meta": {
+        "type": "object",
+        "required": [
+          "test_coverage",
+          "code_complexity",
+          "type_hints",
+          "vulnerabilities",
+          "dep_health",
+          "security_scanning",
+          "project_activity",
+          "version_stability",
+          "changelog",
+          "docstrings",
+          "logging",
+          "structure",
+          "readme",
+          "api_docs",
+          "getting_started",
+          "docker",
+          "cicd"
+        ],
+        "properties": {
+          "test_coverage": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "code_complexity": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "type_hints": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "vulnerabilities": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "dep_health": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "security_scanning": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "project_activity": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "version_stability": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "changelog": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "docstrings": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "logging": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "structure": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "readme": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "api_docs": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "getting_started": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "docker": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "cicd": {
+            "type": "object",
+            "required": [
+              "max_score",
+              "status",
+              "method",
+              "confidence",
+              "note"
+            ],
+            "properties": {
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "heuristic"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "blocks_meta": {
+        "type": "object",
+        "required": [
+          "block1_code_quality",
+          "block2_security",
+          "block3_maintenance",
+          "block4_architecture",
+          "block5_documentation",
+          "block6_devops"
+        ],
+        "properties": {
+          "block1_code_quality": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          },
+          "block2_security": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          },
+          "block3_maintenance": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          },
+          "block4_architecture": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          },
+          "block5_documentation": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          },
+          "block6_devops": {
+            "type": "object",
+            "required": [
+              "score",
+              "known_score",
+              "known_max",
+              "max_score",
+              "data_coverage_percent"
+            ],
+            "properties": {
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "known_score": {
+                "type": "number"
+              },
+              "known_max": {
+                "type": "number"
+              },
+              "max_score": {
+                "type": "number"
+              },
+              "data_coverage_percent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "criteria_explainability": {
+        "type": "object",
+        "required": [
+          "test_coverage",
+          "code_complexity",
+          "type_hints",
+          "vulnerabilities",
+          "dep_health",
+          "security_scanning",
+          "project_activity",
+          "version_stability",
+          "changelog",
+          "docstrings",
+          "logging",
+          "structure",
+          "readme",
+          "api_docs",
+          "getting_started",
+          "docker",
+          "cicd"
+        ],
+        "additionalProperties": true
+      },
+      "recommendations": {
+        "type": "array"
+      },
+      "quick_fixes": {
+        "type": "array"
+      },
+      "test_coverage": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "code_complexity": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "type_hints": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "vulnerabilities": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "dep_health": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "security_scanning": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "project_activity": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "version_stability": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "changelog": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "docstrings": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "logging": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "structure": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "readme": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "api_docs": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "getting_started": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "docker": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "cicd": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block1_code_quality": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block2_security": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block3_maintenance": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block4_architecture": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block5_documentation": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "block6_devops": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "additionalProperties": true
+  }
+}

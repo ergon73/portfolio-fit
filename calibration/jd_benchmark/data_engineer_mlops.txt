@@ -1,0 +1,4 @@
+Senior Data/ML Engineer
+Must have: Python, data engineering, SQL, cloud, Docker, CI/CD, testing.
+Nice to have: Kubernetes, AI/ML, NLP.
+Domain: devtools.

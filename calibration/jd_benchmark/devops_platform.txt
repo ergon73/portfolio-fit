@@ -1,0 +1,4 @@
+DevOps / Platform Engineer
+Must have: Docker, Kubernetes, cloud, CI/CD, observability, security.
+Nice to have: Python, FastAPI, SQL.
+Domain: platform engineering.

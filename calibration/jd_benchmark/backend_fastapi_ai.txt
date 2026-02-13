@@ -1,0 +1,4 @@
+Senior Python Backend Engineer
+Must have: Python, FastAPI, SQL, Docker, CI/CD, testing, security.
+Nice to have: Kubernetes, AWS, AI/LLM, Telegram integration.
+Domain: fintech or ecommerce.

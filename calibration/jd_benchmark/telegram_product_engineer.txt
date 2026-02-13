@@ -1,0 +1,4 @@
+Python Product Engineer (Telegram bots)
+Must have: Python, async, telegram, API design, testing, CI/CD.
+Nice to have: AI/LLM, SQL, Docker, observability.
+Domain: ecommerce and education.

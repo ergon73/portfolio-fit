@@ -1,0 +1,4 @@
+Middle Django Backend Developer
+Must have: Python, Django, SQL, testing, CI/CD, API design.
+Nice to have: Docker, cloud, security scanning.
+Domain: fintech.
