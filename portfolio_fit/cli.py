@@ -5,6 +5,7 @@ from pathlib import Path
 from portfolio_fit.discovery import evaluate_repos, validate_path
 from portfolio_fit.github_fetcher import GitHubRepoFetcher
 from portfolio_fit.reporting import print_results
+from portfolio_fit.scoring import STACK_PROFILES
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -13,8 +14,8 @@ def parse_arguments() -> argparse.Namespace:
     Parse command line arguments
     """
     parser = argparse.ArgumentParser(
-        description="Enhanced Portfolio Evaluation Script v2.3\n"
-        "Расширенный скрипт оценки портфолио v2.3",
+        description="Enhanced Portfolio Evaluation Script v3.1\n"
+        "Расширенный скрипт оценки портфолио v3.1",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Примеры использования / Usage examples:
@@ -23,6 +24,7 @@ def parse_arguments() -> argparse.Namespace:
   %(prog)s -g username -o ./repos    # С указанием папки / With output directory
   %(prog)s --path ./my_repos         # Локальная папка / Local folder
   %(prog)s --path ./workspace --recursive  # Рекурсивный поиск / Recursive discovery
+  %(prog)s --path ./workspace --stack-profile node_frontend  # Принудительный профиль / Forced stack profile
   %(prog)s --path ./repos --compare portfolio_evaluation_local.json  # Сравнение запусков / Compare runs
         """,
     )
@@ -87,6 +89,18 @@ def parse_arguments() -> argparse.Namespace:
         help="Сравнить текущие результаты с предыдущим JSON-отчетом / Compare with previous JSON report",
     )
 
+    parser.add_argument(
+        "--stack-profile",
+        type=str,
+        choices=list(STACK_PROFILES),
+        default="auto",
+        help=(
+            "Профиль стека (auto/python_backend/python_fullstack_react/"
+            "python_django_templates/node_frontend/mixed_unknown) / "
+            "Stack profile override"
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -107,12 +121,12 @@ def main():
     sys.stdout.write("=" * 120 + "\n")
     sys.stdout.flush()
     sys.stdout.write(
-        "РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v2.3 / ENHANCED PORTFOLIO EVALUATION SCRIPT v2.3\n"
+        "РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v3.1 / ENHANCED PORTFOLIO EVALUATION SCRIPT v3.1\n"
     )
     sys.stdout.flush()
-    sys.stdout.write("17 Критериев / 50 Баллов - Production Readiness Score Enhanced\n")
+    sys.stdout.write("17 Core-критериев + full-stack signals / 50 Баллов\n")
     sys.stdout.flush()
-    sys.stdout.write("17 Criteria / 50 Points - Production Readiness Score Enhanced\n")
+    sys.stdout.write("17 core criteria + full-stack signals / 50 points\n")
     sys.stdout.flush()
     sys.stdout.write("=" * 120 + "\n\n")
     sys.stdout.flush()
@@ -154,12 +168,12 @@ def main():
                     )
                     return
 
-                # Фильтруем Python репозитории / Filter Python repos
-                python_repos = fetcher.filter_python_repos(repos)
+                # Фильтруем поддерживаемые репозитории / Filter supported repos
+                supported_repos = fetcher.filter_supported_repos(repos)
 
                 # Клонируем / Clone
                 cloned_paths = fetcher.clone_all_repos(
-                    python_repos, max_repos=args.max_repos
+                    supported_repos, max_repos=args.max_repos
                 )
 
                 if not cloned_paths:
@@ -171,7 +185,10 @@ def main():
 
                 # Оцениваем / Evaluate
                 results = evaluate_repos(
-                    fetcher.output_dir, github_username=args.github, recursive=False
+                    fetcher.output_dir,
+                    github_username=args.github,
+                    recursive=False,
+                    stack_profile=args.stack_profile,
                 )
 
                 # Выводим результаты / Print results
@@ -231,7 +248,9 @@ def main():
             return
 
         # Оцениваем / Evaluate
-        results = evaluate_repos(repos_dir, recursive=args.recursive)
+        results = evaluate_repos(
+            repos_dir, recursive=args.recursive, stack_profile=args.stack_profile
+        )
 
         # Выводим результаты / Print results
         print_results(results, compare_path=args.compare)

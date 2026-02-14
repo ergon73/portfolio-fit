@@ -51,6 +51,17 @@ class SchemaContractTests(unittest.TestCase):
             any("missing required field 'total_score'" in error for error in errors)
         )
 
+    def test_validation_reports_out_of_range_coverage(self):
+        enriched = self._build_enriched_result()
+        enriched["data_coverage_percent"] = 120.0
+        errors = validate_results_contract([enriched])
+        self.assertTrue(
+            any(
+                "field 'data_coverage_percent' must be in [0, 100]" in error
+                for error in errors
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

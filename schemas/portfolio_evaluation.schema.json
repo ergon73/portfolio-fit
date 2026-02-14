@@ -1,13 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ergon73.github.io/portfolio-fit/schemas/portfolio_evaluation.schema.json",
-  "title": "Portfolio evaluation result list",
+  "title": "Portfolio evaluation result list (multi-stack)",
+  "description": "Evaluation contract for Python/JS/TS/HTML/CSS oriented repositories with stack-aware applicability and standalone full-stack signals.",
   "type": "array",
   "items": {
     "type": "object",
     "required": [
       "repo",
       "path",
+      "stack_profile",
       "total_score",
       "max_score",
       "raw_max_score",
@@ -17,11 +19,20 @@
       "data_quality_status",
       "data_quality_warnings",
       "category",
+      "frontend_quality",
+      "data_layer_quality",
+      "api_contract_maturity",
+      "fullstack_maturity",
+      "frontend_quality_meta",
+      "data_layer_quality_meta",
+      "api_contract_maturity_meta",
+      "fullstack_maturity_meta",
       "criteria_meta",
       "blocks_meta",
       "criteria_explainability",
       "recommendations",
       "quick_fixes",
+      "domain_roadmaps",
       "test_coverage",
       "code_complexity",
       "type_hints",
@@ -55,9 +66,21 @@
         "type": "string",
         "minLength": 1
       },
+      "stack_profile": {
+        "type": "string",
+        "enum": [
+          "python_backend",
+          "python_fullstack_react",
+          "python_django_templates",
+          "node_frontend",
+          "mixed_unknown"
+        ],
+        "description": "Auto-detected or forced stack profile"
+      },
       "total_score": {
         "type": "number",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 50
       },
       "max_score": {
         "type": "number",
@@ -77,7 +100,8 @@
       },
       "data_coverage_percent": {
         "type": "number",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 100
       },
       "data_quality_status": {
         "type": "string",
@@ -137,7 +161,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -176,7 +201,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -215,7 +241,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -254,7 +281,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -293,7 +321,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -332,7 +361,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -371,7 +401,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -410,7 +441,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -449,7 +481,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -488,7 +521,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -527,7 +561,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -566,7 +601,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -605,7 +641,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -644,7 +681,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -683,7 +721,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -722,7 +761,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -761,7 +801,8 @@
                 "type": "string",
                 "enum": [
                   "known",
-                  "unknown"
+                  "unknown",
+                  "not_applicable"
                 ]
               },
               "method": {
@@ -1004,7 +1045,11 @@
           "api_docs",
           "getting_started",
           "docker",
-          "cicd"
+          "cicd",
+          "frontend_quality",
+          "data_layer_quality",
+          "api_contract_maturity",
+          "fullstack_maturity"
         ],
         "additionalProperties": true
       },
@@ -1013,6 +1058,42 @@
       },
       "quick_fixes": {
         "type": "array"
+      },
+      "domain_roadmaps": {
+        "type": "object",
+        "required": [
+          "backend",
+          "frontend",
+          "data",
+          "devops"
+        ],
+        "properties": {
+          "backend": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "frontend": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "devops": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "additionalProperties": true
       },
       "test_coverage": {
         "type": [
@@ -1151,6 +1232,222 @@
           "number",
           "null"
         ]
+      },
+      "frontend_quality": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Standalone full-stack signal: frontend_quality"
+      },
+      "data_layer_quality": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Standalone full-stack signal: data_layer_quality"
+      },
+      "api_contract_maturity": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Standalone full-stack signal: api_contract_maturity"
+      },
+      "fullstack_maturity": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Standalone full-stack signal: fullstack_maturity"
+      },
+      "frontend_quality_meta": {
+        "type": "object",
+        "required": [
+          "max_score",
+          "status",
+          "method",
+          "confidence",
+          "note",
+          "score"
+        ],
+        "properties": {
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "heuristic"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "data_layer_quality_meta": {
+        "type": "object",
+        "required": [
+          "max_score",
+          "status",
+          "method",
+          "confidence",
+          "note",
+          "score"
+        ],
+        "properties": {
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "heuristic"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "api_contract_maturity_meta": {
+        "type": "object",
+        "required": [
+          "max_score",
+          "status",
+          "method",
+          "confidence",
+          "note",
+          "score"
+        ],
+        "properties": {
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "heuristic"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "fullstack_maturity_meta": {
+        "type": "object",
+        "required": [
+          "max_score",
+          "status",
+          "method",
+          "confidence",
+          "note",
+          "score"
+        ],
+        "properties": {
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "heuristic"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
       }
     },
     "additionalProperties": true

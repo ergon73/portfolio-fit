@@ -2,15 +2,26 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, cast
 
-from portfolio_fit.scoring import EvaluationConstants
+from portfolio_fit.scoring import (
+    NON_AUTO_STACK_PROFILES,
+    EvaluationConstants,
+)
 
 CRITERION_KEYS = list(EvaluationConstants.CRITERION_MAX_SCORES.keys())
 BLOCK_KEYS = list(EvaluationConstants.BLOCK_MAX_SCORES.keys())
+STANDALONE_SIGNAL_KEYS = (
+    "frontend_quality",
+    "data_layer_quality",
+    "api_contract_maturity",
+    "fullstack_maturity",
+)
+DOMAIN_ROADMAP_KEYS = ("backend", "frontend", "data", "devops")
 
 RESULT_REQUIRED_FIELDS = (
     [
         "repo",
         "path",
+        "stack_profile",
         "total_score",
         "max_score",
         "raw_max_score",
@@ -20,11 +31,14 @@ RESULT_REQUIRED_FIELDS = (
         "data_quality_status",
         "data_quality_warnings",
         "category",
+        *STANDALONE_SIGNAL_KEYS,
+        *(f"{signal_key}_meta" for signal_key in STANDALONE_SIGNAL_KEYS),
         "criteria_meta",
         "blocks_meta",
         "criteria_explainability",
         "recommendations",
         "quick_fixes",
+        "domain_roadmaps",
     ]
     + CRITERION_KEYS
     + BLOCK_KEYS
@@ -60,7 +74,10 @@ def build_portfolio_evaluation_schema() -> Dict[str, Any]:
             "required": CRITERIA_META_REQUIRED_FIELDS,
             "properties": {
                 "max_score": {"type": "number", "minimum": 0},
-                "status": {"type": "string", "enum": ["known", "unknown"]},
+                "status": {
+                    "type": "string",
+                    "enum": ["known", "unknown", "not_applicable"],
+                },
                 "method": {"type": "string", "enum": ["measured", "heuristic"]},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                 "note": {"type": "string"},
@@ -92,11 +109,41 @@ def build_portfolio_evaluation_schema() -> Dict[str, Any]:
     block_score_properties = {
         block: {"type": ["number", "null"]} for block in BLOCK_KEYS
     }
+    standalone_score_properties = {
+        signal_key: {
+            "type": ["number", "null"],
+            "description": f"Standalone full-stack signal: {signal_key}",
+        }
+        for signal_key in STANDALONE_SIGNAL_KEYS
+    }
+    standalone_meta_properties = {
+        f"{signal_key}_meta": {
+            "type": "object",
+            "required": CRITERIA_META_REQUIRED_FIELDS + ["score"],
+            "properties": {
+                "score": {"type": ["number", "null"]},
+                "max_score": {"type": "number", "minimum": 0},
+                "status": {
+                    "type": "string",
+                    "enum": ["known", "unknown", "not_applicable"],
+                },
+                "method": {"type": "string", "enum": ["measured", "heuristic"]},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "note": {"type": "string"},
+            },
+            "additionalProperties": True,
+        }
+        for signal_key in STANDALONE_SIGNAL_KEYS
+    }
 
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://ergon73.github.io/portfolio-fit/schemas/portfolio_evaluation.schema.json",
-        "title": "Portfolio evaluation result list",
+        "title": "Portfolio evaluation result list (multi-stack)",
+        "description": (
+            "Evaluation contract for Python/JS/TS/HTML/CSS oriented repositories "
+            "with stack-aware applicability and standalone full-stack signals."
+        ),
         "type": "array",
         "items": {
             "type": "object",
@@ -104,12 +151,21 @@ def build_portfolio_evaluation_schema() -> Dict[str, Any]:
             "properties": {
                 "repo": {"type": "string", "minLength": 1},
                 "path": {"type": "string", "minLength": 1},
-                "total_score": {"type": "number", "minimum": 0},
+                "stack_profile": {
+                    "type": "string",
+                    "enum": list(NON_AUTO_STACK_PROFILES),
+                    "description": "Auto-detected or forced stack profile",
+                },
+                "total_score": {"type": "number", "minimum": 0, "maximum": 50},
                 "max_score": {"type": "number", "minimum": 0},
                 "raw_max_score": {"type": "number", "minimum": 0},
                 "known_score": {"type": "number", "minimum": 0},
                 "known_max_score": {"type": "number", "minimum": 0},
-                "data_coverage_percent": {"type": "number", "minimum": 0},
+                "data_coverage_percent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
                 "data_quality_status": {
                     "type": "string",
                     "enum": ["green", "yellow", "red"],
@@ -133,13 +189,24 @@ def build_portfolio_evaluation_schema() -> Dict[str, Any]:
                 },
                 "criteria_explainability": {
                     "type": "object",
-                    "required": CRITERION_KEYS,
+                    "required": CRITERION_KEYS + list(STANDALONE_SIGNAL_KEYS),
                     "additionalProperties": True,
                 },
                 "recommendations": {"type": "array"},
                 "quick_fixes": {"type": "array"},
+                "domain_roadmaps": {
+                    "type": "object",
+                    "required": list(DOMAIN_ROADMAP_KEYS),
+                    "properties": {
+                        domain: {"type": "array", "items": {"type": "object"}}
+                        for domain in DOMAIN_ROADMAP_KEYS
+                    },
+                    "additionalProperties": True,
+                },
                 **criterion_score_properties,
                 **block_score_properties,
+                **standalone_score_properties,
+                **standalone_meta_properties,
             },
             "additionalProperties": True,
         },
@@ -166,6 +233,12 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
         if not isinstance(value, str) or not value.strip():
             errors.append(f"{repo_label}: field '{field}' must be a non-empty string")
 
+    stack_profile = result.get("stack_profile")
+    if stack_profile not in set(NON_AUTO_STACK_PROFILES):
+        errors.append(
+            f"{repo_label}: field 'stack_profile' must be one of {', '.join(NON_AUTO_STACK_PROFILES)}"
+        )
+
     for field in (
         "total_score",
         "max_score",
@@ -176,6 +249,38 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
     ):
         if not _is_number(result.get(field)):
             errors.append(f"{repo_label}: field '{field}' must be a number")
+
+    if _is_number(result.get("data_coverage_percent")):
+        coverage_value = float(cast(float, result["data_coverage_percent"]))
+        if not 0.0 <= coverage_value <= 100.0:
+            errors.append(
+                f"{repo_label}: field 'data_coverage_percent' must be in [0, 100]"
+            )
+
+    if _is_number(result.get("total_score")) and _is_number(result.get("max_score")):
+        total_score_value = float(cast(float, result["total_score"]))
+        max_score_value = float(cast(float, result["max_score"]))
+        if total_score_value > max_score_value + 1e-6:
+            errors.append(
+                f"{repo_label}: field 'total_score' cannot exceed 'max_score'"
+            )
+
+    if _is_number(result.get("known_score")) and _is_number(
+        result.get("known_max_score")
+    ):
+        known_score_value = float(cast(float, result["known_score"]))
+        known_max_score_value = float(cast(float, result["known_max_score"]))
+        if known_score_value > known_max_score_value + 1e-6:
+            errors.append(
+                f"{repo_label}: field 'known_score' cannot exceed 'known_max_score'"
+            )
+
+    for signal_key in STANDALONE_SIGNAL_KEYS:
+        signal_score = result.get(signal_key)
+        if signal_score is not None and not _is_number(signal_score):
+            errors.append(
+                f"{repo_label}: field '{signal_key}' must be a number or null"
+            )
 
     quality_status = result.get("data_quality_status")
     if quality_status not in {"green", "yellow", "red"}:
@@ -194,6 +299,55 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
     for field in ("recommendations", "quick_fixes"):
         if not isinstance(result.get(field), list):
             errors.append(f"{repo_label}: field '{field}' must be a list")
+
+    domain_roadmaps = result.get("domain_roadmaps")
+    if not isinstance(domain_roadmaps, dict):
+        errors.append(f"{repo_label}: field 'domain_roadmaps' must be an object")
+    else:
+        for domain in DOMAIN_ROADMAP_KEYS:
+            items = domain_roadmaps.get(domain)
+            if not isinstance(items, list):
+                errors.append(
+                    f"{repo_label}: domain_roadmaps['{domain}'] must be a list"
+                )
+
+    for signal_key in STANDALONE_SIGNAL_KEYS:
+        meta_key = f"{signal_key}_meta"
+        signal_meta = result.get(meta_key)
+        if not isinstance(signal_meta, dict):
+            errors.append(f"{repo_label}: field '{meta_key}' must be an object")
+            continue
+
+        for required_field in CRITERIA_META_REQUIRED_FIELDS + ["score"]:
+            if required_field not in signal_meta:
+                errors.append(f"{repo_label}: {meta_key} missing '{required_field}'")
+
+        signal_meta_score = signal_meta.get("score")
+        if signal_meta_score is not None and not _is_number(signal_meta_score):
+            errors.append(f"{repo_label}: {meta_key}.score must be number or null")
+        if not _is_number(signal_meta.get("max_score")):
+            errors.append(f"{repo_label}: {meta_key}.max_score must be number")
+
+        signal_status = signal_meta.get("status")
+        if signal_status not in {"known", "unknown", "not_applicable"}:
+            errors.append(
+                f"{repo_label}: {meta_key}.status must be known/unknown/not_applicable"
+            )
+
+        signal_method = signal_meta.get("method")
+        if signal_method not in {"measured", "heuristic"}:
+            errors.append(f"{repo_label}: {meta_key}.method must be measured/heuristic")
+
+        signal_confidence = signal_meta.get("confidence")
+        if not _is_number(signal_confidence):
+            errors.append(f"{repo_label}: {meta_key}.confidence must be number")
+        else:
+            signal_confidence_value = float(cast(float, signal_confidence))
+            if not 0.0 <= signal_confidence_value <= 1.0:
+                errors.append(f"{repo_label}: {meta_key}.confidence must be in [0, 1]")
+
+        if not isinstance(signal_meta.get("note"), str):
+            errors.append(f"{repo_label}: {meta_key}.note must be string")
 
     for criterion in CRITERION_KEYS:
         criterion_score = result.get(criterion)
@@ -226,9 +380,9 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
                 )
 
             status = meta.get("status")
-            if status not in {"known", "unknown"}:
+            if status not in {"known", "unknown", "not_applicable"}:
                 errors.append(
-                    f"{repo_label}: criteria_meta['{criterion}'].status must be known/unknown"
+                    f"{repo_label}: criteria_meta['{criterion}'].status must be known/unknown/not_applicable"
                 )
 
             method = meta.get("method")
@@ -285,6 +439,14 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
                     f"{repo_label}: blocks_meta['{block}'].score must be number or null"
                 )
 
+            block_coverage = block_meta.get("data_coverage_percent")
+            if _is_number(block_coverage):
+                block_coverage_value = float(cast(float, block_coverage))
+                if not 0.0 <= block_coverage_value <= 100.0:
+                    errors.append(
+                        f"{repo_label}: blocks_meta['{block}'].data_coverage_percent must be in [0, 100]"
+                    )
+
             block_score = result.get(block)
             if block_score is not None and not _is_number(block_score):
                 errors.append(f"{repo_label}: field '{block}' must be a number or null")
@@ -299,6 +461,11 @@ def validate_result_contract(result: Dict[str, Any], index: int = 0) -> List[str
             if criterion not in explainability:
                 errors.append(
                     f"{repo_label}: criteria_explainability missing '{criterion}'"
+                )
+        for signal_key in STANDALONE_SIGNAL_KEYS:
+            if signal_key not in explainability:
+                errors.append(
+                    f"{repo_label}: criteria_explainability missing '{signal_key}'"
                 )
 
     return errors

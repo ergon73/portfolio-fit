@@ -358,7 +358,7 @@ def _average_criteria_confidence(result: Dict[str, Any]) -> float:
         if not isinstance(meta, dict):
             continue
         status = str(meta.get("status", "known"))
-        if status == "unknown":
+        if status in {"unknown", "not_applicable"}:
             continue
         confidence = _to_float(meta.get("confidence"), -1.0)
         if confidence >= 0:

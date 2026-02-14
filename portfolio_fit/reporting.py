@@ -70,6 +70,56 @@ BLOCK_SPECS = [
 
 CORE_METRICS = {"test_coverage", "code_complexity", "vulnerabilities"}
 
+STANDALONE_SIGNAL_SPECS: Dict[str, Dict[str, Any]] = {
+    "frontend_quality": {
+        "label": "Frontend quality / HTML-CSS-A11y",
+        "default_max": 5.0,
+    },
+    "data_layer_quality": {
+        "label": "Data layer maturity / SQL-Migrations",
+        "default_max": 5.0,
+    },
+    "api_contract_maturity": {
+        "label": "API contract maturity / OpenAPI-Versioning",
+        "default_max": 5.0,
+    },
+    "fullstack_maturity": {
+        "label": "Full-stack integration maturity",
+        "default_max": 5.0,
+    },
+}
+
+DOMAIN_ROADMAP_KEYS = ("backend", "frontend", "data", "devops")
+DOMAIN_ROADMAP_LABELS = {
+    "backend": "Backend roadmap",
+    "frontend": "Frontend roadmap",
+    "data": "Data roadmap",
+    "devops": "DevOps roadmap",
+}
+CRITERION_DOMAIN = {
+    "test_coverage": "backend",
+    "code_complexity": "backend",
+    "type_hints": "backend",
+    "vulnerabilities": "backend",
+    "dep_health": "backend",
+    "security_scanning": "backend",
+    "project_activity": "backend",
+    "version_stability": "backend",
+    "changelog": "backend",
+    "docstrings": "backend",
+    "logging": "backend",
+    "structure": "backend",
+    "readme": "backend",
+    "api_docs": "backend",
+    "getting_started": "backend",
+    "docker": "devops",
+    "cicd": "devops",
+    "frontend_quality": "frontend",
+    "data_layer_quality": "data",
+    "api_contract_maturity": "backend",
+    "fullstack_maturity": "backend",
+}
+
 CRITERION_PLAYBOOK: Dict[str, Dict[str, Any]] = {
     "test_coverage": {
         "title": "Raise automated test coverage",
@@ -173,6 +223,30 @@ CRITERION_PLAYBOOK: Dict[str, Dict[str, Any]] = {
         "impact": 4,
         "effort": 2,
     },
+    "frontend_quality": {
+        "title": "Strengthen frontend quality baseline",
+        "action": "Improve semantic HTML, CSS architecture, and accessibility checks.",
+        "impact": 4,
+        "effort": 2,
+    },
+    "data_layer_quality": {
+        "title": "Mature DB and migrations layer",
+        "action": "Add disciplined migrations, indexes/constraints, and env templates.",
+        "impact": 4,
+        "effort": 3,
+    },
+    "api_contract_maturity": {
+        "title": "Formalize API contracts",
+        "action": "Publish OpenAPI, version API routes, and add contract checks in CI.",
+        "impact": 5,
+        "effort": 3,
+    },
+    "fullstack_maturity": {
+        "title": "Improve backend-frontend integration",
+        "action": "Connect API/front-end flows, unify CI, and verify compose runtime.",
+        "impact": 4,
+        "effort": 3,
+    },
 }
 
 
@@ -204,43 +278,87 @@ def build_criterion_explainability(result: Dict[str, Any]) -> Dict[str, Dict[str
     """Build explainability payload for every criterion."""
     explainability: Dict[str, Dict[str, Any]] = {}
     criteria_meta = result.get("criteria_meta", {})
-    if not isinstance(criteria_meta, dict):
-        return explainability
+    if isinstance(criteria_meta, dict):
+        for criterion, meta_raw in criteria_meta.items():
+            if not isinstance(meta_raw, dict):
+                continue
 
-    for criterion, meta_raw in criteria_meta.items():
-        if not isinstance(meta_raw, dict):
-            continue
+            score_raw = result.get(criterion)
+            score = None if score_raw is None else _to_float(score_raw)
+            max_score = _to_float(meta_raw.get("max_score"), 0.0)
+            status = str(meta_raw.get("status", "unknown"))
+            method = str(meta_raw.get("method", "heuristic"))
+            confidence = _to_float(meta_raw.get("confidence"), 0.0)
+            note = str(meta_raw.get("note", "")).strip()
 
-        score_raw = result.get(criterion)
-        score = None if score_raw is None else _to_float(score_raw)
-        max_score = _to_float(meta_raw.get("max_score"), 0.0)
-        status = str(meta_raw.get("status", "unknown"))
-        method = str(meta_raw.get("method", "heuristic"))
-        confidence = _to_float(meta_raw.get("confidence"), 0.0)
-        note = str(meta_raw.get("note", "")).strip()
-
-        if score is None or status == "unknown":
-            why = note or "No reliable data available to score this criterion yet."
-            gap = max_score
-        else:
-            gap = max(0.0, max_score - score)
-            if gap == 0:
-                why = note or "Criterion is fully satisfied."
-            else:
+            if status == "not_applicable":
                 why = (
                     note
-                    or f"Partial result: {score:.2f}/{max_score:.2f}, gap {gap:.2f}."
+                    or "Criterion is not applicable for the detected stack profile."
                 )
+                gap = 0.0
+            elif score is None or status == "unknown":
+                why = note or "No reliable data available to score this criterion yet."
+                gap = max_score
+            else:
+                gap = max(0.0, max_score - score)
+                if gap == 0:
+                    why = note or "Criterion is fully satisfied."
+                else:
+                    why = (
+                        note
+                        or f"Partial result: {score:.2f}/{max_score:.2f}, gap {gap:.2f}."
+                    )
 
-        explainability[criterion] = {
-            "label": CRITERION_LABELS.get(criterion, criterion),
-            "score": round(score, 2) if score is not None else None,
-            "max_score": round(max_score, 2),
-            "gap_to_max": round(gap, 2),
-            "status": status,
-            "method": method,
-            "confidence": round(confidence, 2),
-            "why": why,
+            explainability[criterion] = {
+                "label": CRITERION_LABELS.get(criterion, criterion),
+                "score": round(score, 2) if score is not None else None,
+                "max_score": round(max_score, 2),
+                "gap_to_max": round(gap, 2),
+                "status": status,
+                "method": method,
+                "confidence": round(confidence, 2),
+                "why": why,
+            }
+
+    for signal_key, signal_spec in STANDALONE_SIGNAL_SPECS.items():
+        signal_meta = result.get(f"{signal_key}_meta", {})
+        if not isinstance(signal_meta, dict):
+            continue
+
+        signal_score_raw = result.get(signal_key, signal_meta.get("score"))
+        signal_score = None if signal_score_raw is None else _to_float(signal_score_raw)
+        signal_max = _to_float(
+            signal_meta.get("max_score"), _to_float(signal_spec.get("default_max"), 5.0)
+        )
+        signal_status = str(signal_meta.get("status", "unknown"))
+        signal_method = str(signal_meta.get("method", "heuristic"))
+        signal_confidence = _to_float(signal_meta.get("confidence"), 0.0)
+        signal_note = str(signal_meta.get("note", "")).strip()
+
+        if signal_status == "not_applicable":
+            signal_gap = 0.0
+            signal_why = signal_note or "Signal is not applicable for this repository."
+        elif signal_score is None or signal_status == "unknown":
+            signal_gap = signal_max
+            signal_why = (
+                signal_note or "No reliable evidence available for this signal."
+            )
+        else:
+            signal_gap = max(0.0, signal_max - signal_score)
+            signal_why = (
+                signal_note or f"Signal score {signal_score:.2f}/{signal_max:.2f}."
+            )
+
+        explainability[signal_key] = {
+            "label": str(signal_spec.get("label", signal_key)),
+            "score": round(signal_score, 2) if signal_score is not None else None,
+            "max_score": round(signal_max, 2),
+            "gap_to_max": round(signal_gap, 2),
+            "status": signal_status,
+            "method": signal_method,
+            "confidence": round(signal_confidence, 2),
+            "why": signal_why,
         }
 
     return explainability
@@ -268,6 +386,8 @@ def generate_recommendations(
         if max_score <= 0:
             continue
 
+        if status == "not_applicable":
+            continue
         if status == "unknown" or score is None:
             gap_ratio = 0.9 if criterion in CORE_METRICS else 0.7
         else:
@@ -311,15 +431,49 @@ def generate_recommendations(
     return recommendations[:limit]
 
 
+def build_domain_roadmaps(
+    recommendations: List[Dict[str, Any]],
+    limit_per_domain: int = 3,
+) -> Dict[str, List[Dict[str, Any]]]:
+    roadmaps: Dict[str, List[Dict[str, Any]]] = {
+        domain: [] for domain in DOMAIN_ROADMAP_KEYS
+    }
+
+    for recommendation in recommendations:
+        if not isinstance(recommendation, dict):
+            continue
+        criterion = str(recommendation.get("criterion", ""))
+        domain = CRITERION_DOMAIN.get(criterion)
+        if domain not in roadmaps:
+            continue
+        if len(roadmaps[domain]) >= limit_per_domain:
+            continue
+
+        roadmaps[domain].append(
+            {
+                "criterion": criterion,
+                "title": recommendation.get("title", "Improve criterion"),
+                "action": recommendation.get("action", ""),
+                "priority_score": _to_float(recommendation.get("priority_score"), 0.0),
+                "impact": int(_to_float(recommendation.get("impact"), 1.0)),
+                "effort": int(max(1.0, _to_float(recommendation.get("effort"), 1.0))),
+            }
+        )
+
+    return roadmaps
+
+
 def enrich_result_with_insights(result: Dict[str, Any]) -> Dict[str, Any]:
     """Attach explainability and recommendation sections to a repo result."""
     enriched = deepcopy(result)
     explainability = build_criterion_explainability(enriched)
     recommendations = generate_recommendations(enriched, explainability=explainability)
     quick_fixes = [rec for rec in recommendations if bool(rec.get("quick_win"))][:5]
+    domain_roadmaps = build_domain_roadmaps(recommendations)
     enriched["criteria_explainability"] = explainability
     enriched["recommendations"] = recommendations
     enriched["quick_fixes"] = quick_fixes
+    enriched["domain_roadmaps"] = domain_roadmaps
     return enriched
 
 
@@ -465,6 +619,10 @@ def save_text_report(
             f.write(f"{'-' * 120}\n")
             f.write(f"URL: {repo_url}\n")
             f.write(
+                "Профиль стека / Stack profile: "
+                f"{result.get('stack_profile', 'mixed_unknown')}\n"
+            )
+            f.write(
                 f"Общий балл / Total Score: {_to_float(result.get('total_score'), 0.0):.2f}/50\n"
             )
             f.write(f"Категория / Category: {result.get('category', 'unknown')}\n")
@@ -526,6 +684,31 @@ def save_text_report(
                     if note:
                         f.write(f"      note: {note}\n")
 
+            for signal_key, signal_spec in STANDALONE_SIGNAL_SPECS.items():
+                signal_meta = result.get(f"{signal_key}_meta", {})
+                if not isinstance(signal_meta, dict):
+                    continue
+                signal_score_raw = result.get(signal_key, signal_meta.get("score"))
+                signal_score = (
+                    None if signal_score_raw is None else _to_float(signal_score_raw)
+                )
+                signal_max = _to_float(
+                    signal_meta.get("max_score"),
+                    _to_float(signal_spec.get("default_max"), 5.0),
+                )
+                signal_status = str(signal_meta.get("status", "unknown"))
+                signal_method = str(signal_meta.get("method", "heuristic"))
+                signal_confidence = _to_float(signal_meta.get("confidence"), 0.0)
+                signal_note = str(signal_meta.get("note", ""))
+                signal_label = str(signal_spec.get("label", signal_key))
+                f.write(
+                    f"  {signal_label} (separate signal): "
+                    f"{_score_text(signal_score, signal_max)} "
+                    f"[{signal_status}, {signal_method}, conf={signal_confidence:.2f}]\n"
+                )
+                if signal_note:
+                    f.write(f"      note: {signal_note}\n")
+
             recommendations = result.get("recommendations", [])
             if isinstance(recommendations, list) and recommendations:
                 f.write("\n  Actionable recommendations:\n")
@@ -541,6 +724,30 @@ def save_text_report(
                     )
                     f.write(f"      action: {recommendation.get('action', '')}\n")
                     f.write(f"      why: {recommendation.get('reason', '')}\n")
+
+            domain_roadmaps = result.get("domain_roadmaps", {})
+            if isinstance(domain_roadmaps, dict):
+                wrote_domain = False
+                for domain in DOMAIN_ROADMAP_KEYS:
+                    items = domain_roadmaps.get(domain, [])
+                    if not isinstance(items, list) or not items:
+                        continue
+                    if not wrote_domain:
+                        f.write("\n  Domain roadmaps:\n")
+                        wrote_domain = True
+                    f.write(
+                        f"    - {DOMAIN_ROADMAP_LABELS.get(domain, domain)} "
+                        f"({len(items)} items)\n"
+                    )
+                    for item in items[:3]:
+                        if not isinstance(item, dict):
+                            continue
+                        f.write(
+                            "      * "
+                            f"{item.get('title', 'Improve criterion')} "
+                            f"[criterion={item.get('criterion', 'n/a')}, "
+                            f"priority={_to_float(item.get('priority_score'), 0.0):.2f}]\n"
+                        )
 
             quality_warnings = result.get("data_quality_warnings", [])
             if isinstance(quality_warnings, list) and quality_warnings:
@@ -925,10 +1132,11 @@ def print_results(
         if github_username:
             repo_info = f"github.com/{github_username}/{result['repo']}"
         coverage = _to_float(result.get("data_coverage_percent"), 0.0)
+        stack_profile = str(result.get("stack_profile", "mixed_unknown"))
         print(
             f"{i:2}. {repo_info:50} "
             f"{_to_float(result.get('total_score'), 0.0):6.2f}/50 | "
-            f"{result.get('category', 'unknown')} | data {coverage:5.1f}%"
+            f"{result.get('category', 'unknown')} | data {coverage:5.1f}% | stack {stack_profile}"
         )
 
     contract_errors = validate_results_contract(enriched_results)
@@ -976,6 +1184,14 @@ def print_results(
     print("\n  Data quality flags:")
     for status, count in quality_counts.items():
         print(f"  {status:40} : {count:3} repos")
+
+    stack_counts: Dict[str, int] = {}
+    for result in enriched_results:
+        profile = str(result.get("stack_profile", "mixed_unknown"))
+        stack_counts[profile] = stack_counts.get(profile, 0) + 1
+    print("\n  Stack profiles:")
+    for profile, count in sorted(stack_counts.items()):
+        print(f"  {profile:40} : {count:3} repos")
 
     avg_score = sum(
         _to_float(r.get("total_score"), 0.0) for r in enriched_results

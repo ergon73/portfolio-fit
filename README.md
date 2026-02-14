@@ -4,14 +4,14 @@
 
 Smart platform for analyzing and evaluating how your GitHub portfolio matches job requirements.
 
-> **Текущая версия v2.3**: Консистентная оценка по 17 критериям с учетом полноты данных  
+> **Текущая версия v3.1**: Multi-stack оценка (Python + JS/TS + HTML/CSS + SQL signals) с stack-aware coverage и profile recalibration  
 > **Планы**: Веб-приложение с анализом соответствия вакансиям, умным отбором проектов и планом доработок
 
 ## 📊 Описание / Description
 
-Этот скрипт оценивает ваши Python-репозитории по **17 критериям** и выставляет итог по **50-балльной нормализованной шкале** (Production Readiness Score v2.3).
+Этот скрипт оценивает ваши репозитории по **17 core-критериям** + standalone full-stack сигналам и выставляет итог по **50-балльной нормализованной шкале** (Production Readiness Score v3.1).
 
-This script evaluates your Python repositories against **17 criteria** and outputs a **normalized 50-point score** (Production Readiness Score v2.3).
+This script evaluates your repositories across **17 core criteria** plus standalone full-stack signals and outputs a **normalized 50-point score** (Production Readiness Score v3.1).
 
 ### Критерии оценки / Evaluation Criteria
 
@@ -50,6 +50,18 @@ This script evaluates your Python repositories against **17 criteria** and outpu
 - У каждого критерия есть `method`: `measured` или `heuristic`
 - У каждого критерия есть `confidence` (0..1)
 - Итоговый `total_score` нормализуется по известным данным, а полнота измерения показывается в `data_coverage_percent`
+- Для неприменимых проверок используется `not_applicable` (без штрафа в итоговом score)
+
+### Поддерживаемые стеки / Supported stacks
+
+- `python_backend`
+- `python_fullstack_react`
+- `python_django_templates`
+- `node_frontend`
+- `mixed_unknown`
+
+CLI поддерживает `--stack-profile auto` (по умолчанию) и ручной override
+для воспроизводимости.
 
 ## 🚀 Быстрый старт / Quick Start
 
@@ -83,6 +95,13 @@ python enhanced_evaluate_portfolio.py -g username --max-repos 0
 
 ```bash
 python enhanced_evaluate_portfolio.py --path ./repos
+```
+
+#### 3a. Принудительный stack profile / Forced stack profile
+
+```bash
+python enhanced_evaluate_portfolio.py --path ./repos --stack-profile python_backend
+python enhanced_evaluate_portfolio.py --path ./repos --stack-profile node_frontend
 ```
 
 #### 4. Windows (batch файл) / Windows (batch file)
@@ -139,11 +158,14 @@ python recalibrate_profile.py --profile recruiter_view --results portfolio_evalu
 
 # 2) Отредактировать expert_score в calibration/profiles/recruiter_view/labels/golden_set.csv
 
-# 3) Запустить калибровку профиля (без изменения baseline-конфига)
-python recalibrate_profile.py --profile recruiter_view --results portfolio_evaluation_local.json
+# 3) (Опционально) разделить labels по стекам
+python recalibrate_profile.py --profile recruiter_view --results portfolio_evaluation_local.json --split-by-stack --include-additional-stacks --only-split
 
-# 4) (Опционально) активировать профиль как рабочий scoring_config
-python recalibrate_profile.py --profile recruiter_view --results portfolio_evaluation_local.json --apply-to portfolio_fit/scoring_config.json
+# 4) Запустить stack-aware калибровку профиля (без изменения baseline-конфига)
+python recalibrate_profile.py --profile recruiter_view --results portfolio_evaluation_local.json --stack-profile python_backend
+
+# 5) (Опционально) активировать профиль как рабочий scoring_config
+python recalibrate_profile.py --profile recruiter_view --results portfolio_evaluation_local.json --stack-profile python_backend --apply-to portfolio_fit/scoring_config.json
 ```
 
 ### Параметры командной строки / Command Line Options
@@ -157,6 +179,7 @@ python recalibrate_profile.py --profile recruiter_view --results portfolio_evalu
 --keep-repos             Не удалять клонированные репозитории
 --recursive              Рекурсивный поиск репозиториев во вложенных папках
 --compare JSON_FILE      Сравнение с предыдущим JSON-результатом
+--stack-profile PROFILE  Профиль стека (auto/python_backend/python_fullstack_react/python_django_templates/node_frontend/mixed_unknown)
 ```
 
 ## 📄 Результаты / Results
@@ -181,6 +204,7 @@ python recalibrate_profile.py --profile recruiter_view --results portfolio_evalu
 - `data_quality_status` / `data_quality_warnings` — красные флаги по недостаточности evidence
 - Формальный контракт доступен в `schemas/portfolio_evaluation.schema.json`
 - Персональные профили перекалибровки хранятся в `calibration/profiles/<profile>/`
+- Для profile recalibration доступны `--stack-profile`, strict mode и split labels по стекам
 
 ## 📚 Документация / Documentation
 
@@ -191,10 +215,13 @@ python recalibrate_profile.py --profile recruiter_view --results portfolio_evalu
 - [docs/quality/definition-of-done.md](docs/quality/definition-of-done.md) - Общий DoD
 - [docs/baselines/v2.3-baseline-freeze.md](docs/baselines/v2.3-baseline-freeze.md) - Freeze baseline v2.3
 - [docs/migration-v2_3-to-v3_0.md](docs/migration-v2_3-to-v3_0.md) - Миграционная заметка v2.3 -> v3.0
+- [docs/migration-v3_0-to-v3_1.md](docs/migration-v3_0-to-v3_1.md) - Миграционная заметка v3.0 -> v3.1
 - [docs/recalibration-profiles.md](docs/recalibration-profiles.md) - Профили перекалибровки для разных пользователей
 - [docs/calibration-applicability-limits.md](docs/calibration-applicability-limits.md) - Ограничения применимости калибровки
 - [docs/releases/v3.0.0-release-notes.md](docs/releases/v3.0.0-release-notes.md) - Черновик release notes v3.0.0
 - [docs/releases/v3.0.0-publish-checklist.md](docs/releases/v3.0.0-publish-checklist.md) - Чеклист публикации v3.0.0
+- [docs/releases/v3.1.0-release-notes.md](docs/releases/v3.1.0-release-notes.md) - Черновик release notes v3.1.0
+- [docs/releases/v3.1.0-publish-checklist.md](docs/releases/v3.1.0-publish-checklist.md) - Чеклист публикации v3.1.0
 - [CHANGELOG.md](CHANGELOG.md) - Журнал изменений
 
 ## ✅ Проверка / Validation
@@ -261,5 +288,5 @@ Pull requests and issues are welcome!
 
 ---
 
-**Текущая версия**: v2.3 - CLI инструмент для оценки портфолио  
+**Текущая версия**: v3.1 - Multi-stack CLI инструмент для оценки портфолио  
 **Следующий этап**: Веб-приложение с полным функционалом анализа соответствия вакансиям

@@ -1,4 +1,4 @@
-# 🚀 РУКОВОДСТВО: Расширенный Скрипт Оценки v2.3
+# 🚀 РУКОВОДСТВО: Расширенный Скрипт Оценки v3.1
 
 ## 📊 Что Изменилось?
 
@@ -14,7 +14,7 @@
 - **Проверяет качество кода** ✅
 - **Улучшенное покрытие сигналов**
 
-### Новая Версия (v2.3) 🆕
+### Новая Версия (v3.1) 🆕
 - Всё из v2.0 +
 - **GitHub интеграция** — оценка аккаунта по username
 - **Автоматическое клонирование** репозиториев
@@ -28,6 +28,19 @@
 - **Explainability и actionable recommendations** в отчётах
 - **Quick-fix matrix** (impact/effort)
 - **Before/after compare mode** (`--compare previous.json`)
+- **Multi-stack coverage**: Python backend, Node/TS frontend, Django templates, mixed full-stack
+- **Applicability model**: `known/unknown/not_applicable` без штрафа за неприменимые критерии
+- **Stack-aware recalibration**: `--stack-profile`, split labels по стеку
+
+### Поддерживаемые stack profiles
+
+- `python_backend`
+- `python_fullstack_react`
+- `python_django_templates`
+- `node_frontend`
+- `mixed_unknown`
+
+По умолчанию используется `--stack-profile auto`.
 
 ---
 
@@ -68,6 +81,14 @@ python enhanced_evaluate_portfolio.py -g username -m 50
 ```bash
 python enhanced_evaluate_portfolio.py --path ./my_repos
 python enhanced_evaluate_portfolio.py -p ./my_repos
+```
+
+### 3a. Явный профиль стека (для воспроизводимости)
+
+```bash
+python enhanced_evaluate_portfolio.py --path ./my_repos --stack-profile python_backend
+python enhanced_evaluate_portfolio.py --path ./my_repos --stack-profile node_frontend
+python enhanced_evaluate_portfolio.py --path ./my_repos --stack-profile python_fullstack_react
 ```
 
 ### 4. Сравнение с предыдущим запуском
@@ -116,15 +137,21 @@ python recalibrate_profile.py --profile my_view --results portfolio_evaluation_l
 
 # Шаг 2: вручную выставьте expert_score в calibration/profiles/my_view/labels/golden_set.csv
 
-# Шаг 3: прогон перекалибровки профиля
-python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json
+# Шаг 3 (опционально): split labels по стекам
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --split-by-stack --include-additional-stacks --only-split
 
-# Шаг 4 (опционально): применить профиль в активный scoring_config
-python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --apply-to portfolio_fit/scoring_config.json
+# Шаг 4: stack-aware перекалибровка профиля
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --stack-profile python_backend
+
+# Шаг 5 (опционально): применить профиль в активный scoring_config
+python recalibrate_profile.py --profile my_view --results portfolio_evaluation_local.json --stack-profile python_backend --apply-to portfolio_fit/scoring_config.json
 ```
 
 Профильный запуск сохраняет отдельные артефакты в `calibration/profiles/<profile>/`
 и не перезаписывает baseline-конфиг без явного `--apply-to`.
+Поддерживаемые stack-профили: `auto`, `all`, `python_backend`,
+`python_fullstack_react`, `django_templates` (`python_django_templates`),
+`node_frontend`, `mixed_unknown`. По умолчанию включен `--strict-stack`.
 
 ---
 
@@ -140,6 +167,7 @@ python recalibrate_profile.py --profile my_view --results portfolio_evaluation_l
 | `--keep-repos` | — | Не удалять клонированные репозитории |
 | `--recursive` | — | Рекурсивно искать репозитории во вложенных папках (`--path`) |
 | `--compare JSON_FILE` | — | Сравнить текущий запуск с предыдущим JSON-отчётом |
+| `--stack-profile PROFILE` | — | Принудительно задать профиль стека (`auto`, `python_backend`, `python_fullstack_react`, `python_django_templates`, `node_frontend`, `mixed_unknown`) |
 
 ---
 
@@ -388,7 +416,7 @@ python enhanced_evaluate_portfolio.py -p ~/github
 
 ```
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v2.3 / ENHANCED PORTFOLIO EVALUATION SCRIPT v2.3
+РАСШИРЕННЫЙ СКРИПТ ОЦЕНКИ ПОРТФОЛИО v3.1 / ENHANCED PORTFOLIO EVALUATION SCRIPT v3.1
 17 Критериев / 50 Баллов - Production Readiness Score Enhanced
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -414,7 +442,7 @@ python enhanced_evaluate_portfolio.py -p ~/github
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ТОП-20 ПРОЕКТОВ ДЛЯ ПОРТФОЛИО @username
 TOP-20 PROJECTS FOR PORTFOLIO @username
-(по Product Readiness Score v2.3 / by Product Readiness Score v2.3)
+(по Product Readiness Score v3.1 / by Product Readiness Score v3.1)
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
  1. github.com/username/best-project           32.50/50 | ⭐⭐⭐⭐ Отличный / Excellent
@@ -466,6 +494,16 @@ TOP-20 PROJECTS FOR PORTFOLIO @username
 ⚠️ **Глубокий runtime-анализ тестов** (если нет coverage-артефактов)
 ⚠️ **Полноценный security scan on-demand** (если нет `pip-audit-report.json`)
 ⚠️ **Работоспособность Docker** (нужно запустить `docker build`)
+⚠️ **Смысловую релевантность проекта вакансии** без запуска Job Fit (`job_fit_analysis.py`)
+
+### Ограничения multi-stack режима
+
+- `not_applicable` сигнализирует, что критерий неприменим к стеку и не должен
+  трактоваться как провал качества.
+- `mixed_unknown` стоит рассматривать как запрос на ручной review структуры
+  репозитория (нестандартный layout/артефакты).
+- Для точной персональной перекалибровки используйте stack-aware профиль и не
+  смешивайте несовместимые выборки в strict режиме.
 
 ### GitHub API Лимиты
 
@@ -523,6 +561,6 @@ python enhanced_evaluate_portfolio.py -g username -t ghp_your_token
 
 ---
 
-**Дата:** 13 февраля 2026
-**Версия:** 2.3
+**Дата:** 14 февраля 2026
+**Версия:** 3.1
 **Статус:** Production Ready

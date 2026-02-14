@@ -7,6 +7,8 @@ from enhanced_evaluate_portfolio import (
     EnhancedRepositoryEvaluator,
     discover_python_repos,
 )
+from portfolio_fit.discovery import discover_supported_repos
+from portfolio_fit.scoring import detect_stack_profile
 
 
 class ScoringEngineTests(unittest.TestCase):
@@ -90,6 +92,96 @@ class ScoringEngineTests(unittest.TestCase):
             self.assertEqual(result.score, 3.0)
             self.assertIn("pip-audit report vulnerabilities: 3", result.note)
 
+    def test_evaluate_vulnerabilities_uses_local_npm_audit_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "package.json").write_text(
+                '{"name":"frontend","version":"1.0.0","dependencies":{"react":"18.2.0"}}',
+                encoding="utf-8",
+            )
+            (repo / "npm-audit-report.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "vulnerabilities": {
+                                "info": 0,
+                                "low": 1,
+                                "moderate": 2,
+                                "high": 1,
+                                "critical": 0,
+                                "total": 4,
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_vulnerabilities()
+
+            self.assertEqual(result.method, "measured")
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.score, 3.0)
+            self.assertIn("npm audit report vulnerabilities: 4", result.note)
+
+    def test_evaluate_dependency_health_uses_package_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "package.json").write_text(
+                json.dumps(
+                    {
+                        "name": "frontend",
+                        "version": "1.0.0",
+                        "dependencies": {"react": "18.2.0", "axios": "1.6.0"},
+                        "devDependencies": {
+                            "typescript": "5.2.0",
+                            "vite": "5.0.0",
+                            "vitest": "1.0.0",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_dependency_health()
+
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.method, "measured")
+            self.assertEqual(
+                result.score, evaluator.constants.CRITERION_MAX_SCORES["dep_health"]
+            )
+            self.assertIn("dependency entries counted (node): 5", result.note)
+
+    def test_getting_started_scores_package_scripts_quality(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "package.json").write_text(
+                json.dumps(
+                    {
+                        "name": "frontend",
+                        "version": "1.0.0",
+                        "scripts": {
+                            "lint": "eslint src",
+                            "test": "vitest",
+                            "build": "vite build",
+                            "typecheck": "tsc --noEmit",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_getting_started()
+
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.method, "heuristic")
+            self.assertEqual(
+                result.score,
+                evaluator.constants.CRITERION_MAX_SCORES["getting_started"],
+            )
+            self.assertIn("package scripts:", result.note)
+
     def test_evaluate_test_coverage_reads_coverage_xml(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -104,6 +196,23 @@ class ScoringEngineTests(unittest.TestCase):
             self.assertEqual(result.method, "measured")
             self.assertEqual(result.status, "known")
             self.assertEqual(result.score, 5.0)
+            self.assertIn("coverage report found", result.note)
+
+    def test_evaluate_test_coverage_reads_frontend_coverage_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "coverage").mkdir(parents=True, exist_ok=True)
+            (repo / "coverage" / "coverage-summary.json").write_text(
+                json.dumps({"total": {"lines": {"pct": 76.2}}}),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_test_coverage()
+
+            self.assertEqual(result.method, "measured")
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.score, 4.0)
             self.assertIn("coverage report found", result.note)
 
     def test_evaluate_all_returns_bounded_score_and_full_metadata(self):
@@ -129,9 +238,238 @@ class ScoringEngineTests(unittest.TestCase):
             self.assertEqual(len(result["criteria_meta"]), 17)
             self.assertIn("blocks_meta", result)
             self.assertIn("block1_code_quality", result["blocks_meta"])
+            self.assertIn("frontend_quality", result)
+            self.assertIn("frontend_quality_meta", result)
+            self.assertIsInstance(result["frontend_quality_meta"], dict)
+            self.assertIn(
+                result["frontend_quality_meta"].get("status"),
+                {"known", "unknown", "not_applicable"},
+            )
+            self.assertIn("data_layer_quality", result)
+            self.assertIn("data_layer_quality_meta", result)
+            self.assertIsInstance(result["data_layer_quality_meta"], dict)
+            self.assertIn("api_contract_maturity", result)
+            self.assertIn("api_contract_maturity_meta", result)
+            self.assertIsInstance(result["api_contract_maturity_meta"], dict)
+            self.assertIn("fullstack_maturity", result)
+            self.assertIn("fullstack_maturity_meta", result)
+            self.assertIsInstance(result["fullstack_maturity_meta"], dict)
             self.assertIn("data_quality_warnings", result)
             self.assertIsInstance(result["data_quality_warnings"], list)
             self.assertIn(result["data_quality_status"], {"green", "yellow", "red"})
+            self.assertIn(
+                result["stack_profile"],
+                {
+                    "python_backend",
+                    "python_fullstack_react",
+                    "python_django_templates",
+                    "node_frontend",
+                    "mixed_unknown",
+                },
+            )
+
+    def test_frontend_quality_scores_react_typescript_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "package.json").write_text(
+                json.dumps(
+                    {
+                        "name": "frontend",
+                        "version": "1.0.0",
+                        "dependencies": {"react": "18.2.0"},
+                        "devDependencies": {"tailwindcss": "3.4.0"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (repo / "src").mkdir(parents=True, exist_ok=True)
+            (repo / "src" / "App.tsx").write_text(
+                "<main><section><img alt='hero' src='/hero.png' /></section></main>\n",
+                encoding="utf-8",
+            )
+            (repo / "index.html").write_text(
+                (
+                    "<html lang='en'><head>"
+                    "<meta charset='utf-8'>"
+                    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                    "<title>Demo</title></head>"
+                    "<body><header></header><main></main><footer></footer></body></html>"
+                ),
+                encoding="utf-8",
+            )
+            (repo / "src" / "styles.module.css").write_text(
+                ":root { --color-primary: #123456; }\n"
+                ".hero__title--big { color: var(--color-primary); }\n",
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_all()
+
+            self.assertEqual(result["frontend_quality_meta"]["status"], "known")
+            self.assertIsNotNone(result["frontend_quality"])
+            self.assertGreaterEqual(float(result["frontend_quality"]), 3.0)
+            self.assertLessEqual(float(result["frontend_quality"]), 5.0)
+            self.assertIn("frameworks=", result["frontend_quality_meta"]["note"])
+
+    def test_frontend_quality_handles_django_templates_without_spa_penalty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "manage.py").write_text("print('django')\n", encoding="utf-8")
+            (repo / "requirements.txt").write_text("Django==5.0.0\n", encoding="utf-8")
+            (repo / "templates").mkdir(parents=True, exist_ok=True)
+            (repo / "templates" / "base.html").write_text(
+                (
+                    "<html lang='en'><head><meta charset='utf-8'><title>Site</title></head>"
+                    "<body><header></header><main><form><label>Name</label>"
+                    "<input aria-label='name' /></form></main><footer></footer></body></html>"
+                ),
+                encoding="utf-8",
+            )
+            (repo / "static" / "css").mkdir(parents=True, exist_ok=True)
+            (repo / "static" / "css" / "site.css").write_text(
+                ":root { --brand: #0a0a0a; }\n.page__title--main { color: var(--brand); }\n",
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(
+                repo, stack_profile="python_django_templates"
+            )
+            frontend_quality = evaluator.evaluate_frontend_quality()
+
+            self.assertEqual(frontend_quality["status"], "known")
+            self.assertIsNotNone(frontend_quality["score"])
+            self.assertGreaterEqual(float(frontend_quality["score"]), 2.5)
+            self.assertIn("django_templates", frontend_quality["signals"]["frameworks"])
+
+    def test_data_layer_quality_scores_migrations_and_constraints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "manage.py").write_text("print('django')\n", encoding="utf-8")
+            (repo / "app").mkdir(parents=True, exist_ok=True)
+            (repo / "app" / "models.py").write_text(
+                (
+                    "from django.db import models\n"
+                    "class Customer(models.Model):\n"
+                    "    email = models.EmailField(unique=True)\n"
+                    "    name = models.CharField(max_length=120, db_index=True)\n"
+                ),
+                encoding="utf-8",
+            )
+            (repo / "app" / "migrations").mkdir(parents=True, exist_ok=True)
+            (repo / "app" / "migrations" / "0001_initial.py").write_text(
+                "from django.db import migrations\n",
+                encoding="utf-8",
+            )
+            (repo / ".env.example").write_text(
+                "DATABASE_URL=postgres://demo\nDB_HOST=localhost\n",
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo)
+            data_quality = evaluator.evaluate_data_layer_quality()
+
+            self.assertEqual(data_quality["status"], "known")
+            self.assertIsNotNone(data_quality["score"])
+            self.assertGreaterEqual(float(data_quality["score"]), 2.5)
+            self.assertGreaterEqual(data_quality["signals"]["migrations"], 1)
+            self.assertTrue(data_quality["signals"]["env_example"])
+
+    def test_api_contract_maturity_scores_openapi_versioning_and_contract_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "main.py").write_text(
+                (
+                    "from fastapi import FastAPI\n"
+                    "app = FastAPI()\n"
+                    "@app.get('/api/v1/users')\n"
+                    "def users():\n"
+                    "    return []\n"
+                ),
+                encoding="utf-8",
+            )
+            (repo / "openapi.yaml").write_text(
+                "openapi: 3.0.0\ninfo:\n  title: demo\n  version: 1.0.0\n",
+                encoding="utf-8",
+            )
+            (repo / "tests").mkdir(parents=True, exist_ok=True)
+            (repo / "tests" / "test_contract_schema.py").write_text(
+                "def test_contract():\n    assert True\n",
+                encoding="utf-8",
+            )
+            (repo / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+            (repo / ".github" / "workflows" / "ci.yml").write_text(
+                (
+                    "name: ci\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n"
+                    "    steps:\n      - run: schemathesis run openapi.yaml\n"
+                ),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo)
+            api_maturity = evaluator.evaluate_api_contract_maturity()
+
+            self.assertEqual(api_maturity["status"], "known")
+            self.assertIsNotNone(api_maturity["score"])
+            self.assertGreaterEqual(float(api_maturity["score"]), 3.0)
+            self.assertTrue(api_maturity["signals"]["openapi"])
+            self.assertTrue(api_maturity["signals"]["versioning"])
+
+    def test_fullstack_maturity_scores_mixed_backend_frontend_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "backend").mkdir(parents=True, exist_ok=True)
+            (repo / "backend" / "api.py").write_text(
+                (
+                    "from fastapi import APIRouter\n"
+                    "from fastapi.middleware.cors import CORSMiddleware\n"
+                    "router = APIRouter(prefix='/api')\n"
+                ),
+                encoding="utf-8",
+            )
+            (repo / "frontend").mkdir(parents=True, exist_ok=True)
+            (repo / "frontend" / "app.ts").write_text(
+                "const API_URL='/api/v1'; fetch(API_URL);\n",
+                encoding="utf-8",
+            )
+            (repo / "package.json").write_text(
+                json.dumps({"name": "mono", "workspaces": ["frontend"]}),
+                encoding="utf-8",
+            )
+            (repo / "docker-compose.yml").write_text(
+                (
+                    "services:\n"
+                    "  backend:\n    image: python:3.12\n"
+                    "  frontend:\n    image: node:20\n"
+                    "  db:\n    image: postgres:16\n"
+                ),
+                encoding="utf-8",
+            )
+            (repo / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+            (repo / ".github" / "workflows" / "ci.yml").write_text(
+                (
+                    "jobs:\n  test:\n    steps:\n"
+                    "      - run: pytest\n"
+                    "      - run: npm test\n"
+                ),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(
+                repo, stack_profile="python_fullstack_react"
+            )
+            fullstack = evaluator.evaluate_fullstack_maturity()
+
+            self.assertEqual(fullstack["status"], "known")
+            self.assertIsNotNone(fullstack["score"])
+            self.assertGreaterEqual(float(fullstack["score"]), 3.0)
+            self.assertTrue(fullstack["signals"]["compose"])
+            self.assertTrue(fullstack["signals"]["mixed_ci"])
 
     def test_discover_python_repos_top_level_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -170,6 +508,130 @@ class ScoringEngineTests(unittest.TestCase):
             self.assertIn("repo_top", discovered_names)
             self.assertIn("repo_nested", discovered_names)
             self.assertNotIn("static_repo", discovered_names)
+
+    def test_discover_supported_repos_includes_frontend_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            py_repo = root / "repo_py"
+            fe_repo = root / "repo_fe"
+
+            (py_repo / ".git").mkdir(parents=True)
+            (py_repo / "main.py").write_text("print('ok')\n", encoding="utf-8")
+
+            (fe_repo / ".git").mkdir(parents=True)
+            (fe_repo / "package.json").write_text(
+                '{"name":"fe","version":"1.0.0","dependencies":{"react":"18.0.0"}}',
+                encoding="utf-8",
+            )
+
+            discovered = discover_supported_repos(root, recursive=False)
+            names = [path.name for path in discovered]
+            self.assertIn("repo_py", names)
+            self.assertIn("repo_fe", names)
+
+    def test_detect_stack_profile_for_common_layouts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            backend = root / "backend"
+            (backend / ".git").mkdir(parents=True)
+            (backend / "main.py").write_text("print('x')\n", encoding="utf-8")
+            self.assertEqual(detect_stack_profile(backend), "python_backend")
+
+            fullstack = root / "fullstack"
+            (fullstack / ".git").mkdir(parents=True)
+            (fullstack / "app.py").write_text("print('x')\n", encoding="utf-8")
+            (fullstack / "package.json").write_text(
+                '{"name":"full","dependencies":{"react":"18.0.0"}}',
+                encoding="utf-8",
+            )
+            self.assertEqual(detect_stack_profile(fullstack), "python_fullstack_react")
+
+            frontend = root / "frontend"
+            (frontend / ".git").mkdir(parents=True)
+            (frontend / "package.json").write_text(
+                '{"name":"frontend","version":"1.0.0"}', encoding="utf-8"
+            )
+            self.assertEqual(detect_stack_profile(frontend), "node_frontend")
+
+    def test_node_frontend_marks_python_specific_criteria_not_applicable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            (repo / "package.json").write_text(
+                (
+                    '{"name":"frontend","version":"1.0.0","scripts":{"build":"vite build"},'
+                    '"dependencies":{"react":"18.2.0"}}'
+                ),
+                encoding="utf-8",
+            )
+            (repo / "tsconfig.json").write_text(
+                '{"compilerOptions":{"strict":true,"noImplicitAny":true,"strictNullChecks":true}}',
+                encoding="utf-8",
+            )
+            (repo / "src").mkdir(parents=True, exist_ok=True)
+            (repo / "src" / "app.ts").write_text(
+                "export const answer: number = 42;\n", encoding="utf-8"
+            )
+            (repo / "README.md").write_text("# Frontend\n", encoding="utf-8")
+            (repo / "npm-audit-report.json").write_text(
+                json.dumps({"metadata": {"vulnerabilities": {"total": 0}}}),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_all()
+
+            criteria_meta = result["criteria_meta"]
+            self.assertEqual(result["stack_profile"], "node_frontend")
+            self.assertEqual(
+                criteria_meta["code_complexity"]["status"], "not_applicable"
+            )
+            self.assertEqual(criteria_meta["type_hints"]["status"], "known")
+            self.assertEqual(criteria_meta["vulnerabilities"]["status"], "known")
+            self.assertEqual(criteria_meta["docstrings"]["status"], "not_applicable")
+            self.assertEqual(criteria_meta["api_docs"]["status"], "not_applicable")
+            self.assertLessEqual(result["data_coverage_percent"], 100.0)
+
+    def test_type_hints_for_tsconfig_strictness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "package.json").write_text(
+                '{"name":"frontend","version":"1.0.0"}', encoding="utf-8"
+            )
+            (repo / "tsconfig.json").write_text(
+                '{"compilerOptions":{"strict":true,"noImplicitAny":true,"strictNullChecks":true}}',
+                encoding="utf-8",
+            )
+            (repo / "src").mkdir(parents=True, exist_ok=True)
+            (repo / "src" / "index.ts").write_text(
+                "export const x: number = 1;\n", encoding="utf-8"
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_type_hints()
+
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.method, "measured")
+            self.assertEqual(result.score, 5.0)
+            self.assertIn("tsconfig strictness", result.note)
+
+    def test_type_hints_js_only_is_not_applicable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "package.json").write_text(
+                '{"name":"frontend","version":"1.0.0"}', encoding="utf-8"
+            )
+            (repo / "src").mkdir(parents=True, exist_ok=True)
+            (repo / "src" / "index.js").write_text(
+                "export const x = 1;\n", encoding="utf-8"
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo, stack_profile="node_frontend")
+            result = evaluator.evaluate_type_hints()
+
+            self.assertEqual(result.status, "not_applicable")
+            self.assertIsNone(result.score)
 
 
 if __name__ == "__main__":

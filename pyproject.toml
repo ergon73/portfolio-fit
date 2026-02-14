@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "portfolio-fit"
-version = "2.3.0"
-description = "CLI tool for evaluating Python portfolio repositories with transparent scoring metadata."
+version = "3.1.0"
+description = "Multi-stack CLI for evaluating portfolio repositories with transparent, stack-aware scoring metadata."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }

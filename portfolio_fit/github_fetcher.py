@@ -8,6 +8,8 @@ from typing import Dict, List, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from portfolio_fit.scoring import detect_stack_profile
+
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ class GitHubRepoFetcher:
     """
 
     GITHUB_API_URL = "https://api.github.com"
+    SUPPORTED_PRIMARY_LANGUAGES = {"python", "javascript", "typescript", "html", "css"}
 
     def __init__(
         self,
@@ -137,6 +140,39 @@ class GitHubRepoFetcher:
         )
         return python_repos
 
+    def filter_supported_repos(self, repos: List[Dict]) -> List[Dict]:
+        """
+        Filters repositories by commonly supported primary languages.
+        Empty/unknown language is included and validated after clone.
+        """
+        supported_repos: List[Dict] = []
+        for repo in repos:
+            language = repo.get("language")
+            if language is None or language == "":
+                supported_repos.append(repo)
+                continue
+            if (
+                isinstance(language, str)
+                and language.lower() in self.SUPPORTED_PRIMARY_LANGUAGES
+            ):
+                supported_repos.append(repo)
+
+        print(
+            "🧩 Поддерживаемых репозиториев: "
+            f"{len(supported_repos)} / Supported repositories: {len(supported_repos)}",
+            flush=True,
+        )
+        return supported_repos
+
+    def _is_supported_repo_path(self, path: Path) -> bool:
+        stack = detect_stack_profile(path)
+        if stack != "mixed_unknown":
+            return True
+        for pattern in ("*.html", "*.css", "*.js", "*.ts", "*.py"):
+            if any(path.glob(pattern)) or any(path.glob(f"**/{pattern}")):
+                return True
+        return False
+
     def clone_repo(self, repo: Dict) -> Optional[Path]:
         """
         Клонирует репозиторий
@@ -218,25 +254,16 @@ class GitHubRepoFetcher:
             print(f"[{i}/{len(repos_to_clone)}] ", end="")
             path = self.clone_repo(repo)
             if path:
-                # Проверяем что это действительно Python проект
-                # Verify it's actually a Python project
-                has_python = (
-                    any(path.glob("*.py"))
-                    or any(path.glob("**/*.py"))
-                    or (path / "setup.py").exists()
-                    or (path / "pyproject.toml").exists()
-                )
-
-                if has_python:
+                if self._is_supported_repo_path(path):
                     cloned_paths.append(path)
                 else:
                     print(
-                        f"      ⚠️  {repo['name']} - не Python проект / not a Python project"
+                        f"      ⚠️  {repo['name']} - неподдерживаемый стек / unsupported stack"
                     )
 
         print("-" * 60)
-        print(f"✅ Успешно клонировано Python проектов: {len(cloned_paths)}")
-        print(f"   Successfully cloned Python projects: {len(cloned_paths)}")
+        print(f"✅ Успешно клонировано поддерживаемых проектов: {len(cloned_paths)}")
+        print(f"   Successfully cloned supported projects: {len(cloned_paths)}")
 
         return cloned_paths
 

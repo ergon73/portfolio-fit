@@ -14,6 +14,9 @@ def make_result(
     coverage: float,
     test_coverage_score: float,
     cicd_score: float,
+    frontend_quality_score: float = 2.5,
+    data_layer_quality_score: float = 1.5,
+    api_contract_maturity_score: float = 1.0,
 ) -> Dict[str, Any]:
     return {
         "repo": repo,
@@ -22,6 +25,42 @@ def make_result(
         "category": "⭐⭐⭐ Хороший / Good",
         "test_coverage": test_coverage_score,
         "cicd": cicd_score,
+        "frontend_quality": frontend_quality_score,
+        "frontend_quality_meta": {
+            "score": frontend_quality_score,
+            "max_score": 5.0,
+            "status": "known",
+            "method": "heuristic",
+            "confidence": 0.75,
+            "note": f"frontend signal for {repo}",
+        },
+        "data_layer_quality": data_layer_quality_score,
+        "data_layer_quality_meta": {
+            "score": data_layer_quality_score,
+            "max_score": 5.0,
+            "status": "known",
+            "method": "heuristic",
+            "confidence": 0.7,
+            "note": f"data signal for {repo}",
+        },
+        "api_contract_maturity": api_contract_maturity_score,
+        "api_contract_maturity_meta": {
+            "score": api_contract_maturity_score,
+            "max_score": 5.0,
+            "status": "known",
+            "method": "heuristic",
+            "confidence": 0.7,
+            "note": f"api signal for {repo}",
+        },
+        "fullstack_maturity": None,
+        "fullstack_maturity_meta": {
+            "score": None,
+            "max_score": 5.0,
+            "status": "not_applicable",
+            "method": "heuristic",
+            "confidence": 1.0,
+            "note": "not fullstack",
+        },
         "criteria_meta": {
             "test_coverage": {
                 "max_score": 5.0,
@@ -56,17 +95,29 @@ class ReportingInsightsCompareTests(unittest.TestCase):
         self.assertIn("criteria_explainability", enriched)
         self.assertIn("recommendations", enriched)
         self.assertIn("quick_fixes", enriched)
+        self.assertIn("domain_roadmaps", enriched)
         self.assertIn("test_coverage", enriched["criteria_explainability"])
+        self.assertIn("frontend_quality", enriched["criteria_explainability"])
+        self.assertIn("data_layer_quality", enriched["criteria_explainability"])
+        self.assertIn("api_contract_maturity", enriched["criteria_explainability"])
 
         rec_criteria = [item["criterion"] for item in enriched["recommendations"]]
         self.assertIn("test_coverage", rec_criteria)
         self.assertIn("cicd", rec_criteria)
+        self.assertIn("frontend_quality", rec_criteria)
+        self.assertIn("data_layer_quality", rec_criteria)
+        self.assertIn("api_contract_maturity", rec_criteria)
         self.assertTrue(enriched["quick_fixes"])
+        self.assertIn("backend", enriched["domain_roadmaps"])
+        self.assertIn("frontend", enriched["domain_roadmaps"])
+        self.assertIn("data", enriched["domain_roadmaps"])
+        self.assertIn("devops", enriched["domain_roadmaps"])
 
         matrix = build_portfolio_quick_fixes([enriched])
         self.assertTrue(matrix)
         matrix_criteria = [row["criterion"] for row in matrix]
         self.assertIn("cicd", matrix_criteria)
+        self.assertIn("frontend_quality", matrix_criteria)
 
     def test_build_comparison_reports_improved_new_and_removed(self):
         previous_results = [
