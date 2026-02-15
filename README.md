@@ -4,7 +4,7 @@
 
 Smart platform for analyzing and evaluating how your GitHub portfolio matches job requirements.
 
-> **Текущая версия v3.1**: Multi-stack оценка (Python + JS/TS + HTML/CSS + SQL signals) с stack-aware coverage и profile recalibration  
+> **Текущая версия v3.1**: Multi-stack оценка (Python + Jupyter `.ipynb` + JS/TS + HTML/CSS + SQL signals) с stack-aware coverage и profile recalibration  
 > **Планы**: Веб-приложение с анализом соответствия вакансиям, умным отбором проектов и планом доработок
 
 ## 📊 Описание / Description
@@ -62,6 +62,8 @@ This script evaluates your repositories across **17 core criteria** plus standal
 
 CLI поддерживает `--stack-profile auto` (по умолчанию) и ручной override
 для воспроизводимости.
+
+Для Python-аналитики учитываются как `.py`, так и code-cells из `.ipynb`.
 
 ## 🚀 Быстрый старт / Quick Start
 

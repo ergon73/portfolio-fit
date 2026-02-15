@@ -43,6 +43,8 @@ def is_python_repo_dir(repo_path: Path) -> bool:
     has_py_files = (
         any(repo_path.glob("*.py"))
         or any(repo_path.glob("**/*.py"))
+        or any(repo_path.glob("*.ipynb"))
+        or any(repo_path.glob("**/*.ipynb"))
         or (repo_path / "src").is_dir()
         or (repo_path / "app").is_dir()
         or (repo_path / "main.py").exists()
@@ -52,7 +54,8 @@ def is_python_repo_dir(repo_path: Path) -> bool:
 
 def is_supported_repo_dir(repo_path: Path) -> bool:
     """
-    Checks if a directory looks like a supported repository (Python/JS/TS/HTML/CSS).
+    Checks if a directory looks like a supported repository
+    (Python/JS/TS/HTML/CSS/Jupyter).
     """
     if not repo_path.is_dir() or not (repo_path / ".git").exists():
         return False
@@ -71,7 +74,16 @@ def is_supported_repo_dir(repo_path: Path) -> bool:
     if any((repo_path / marker).exists() for marker in marker_files):
         return True
 
-    code_patterns = ("*.py", "*.js", "*.ts", "*.tsx", "*.jsx", "*.html", "*.css")
+    code_patterns = (
+        "*.py",
+        "*.ipynb",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        "*.jsx",
+        "*.html",
+        "*.css",
+    )
     for pattern in code_patterns:
         if any(repo_path.glob(pattern)) or any(repo_path.glob(f"**/{pattern}")):
             return True

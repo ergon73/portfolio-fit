@@ -21,7 +21,14 @@ class GitHubRepoFetcher:
     """
 
     GITHUB_API_URL = "https://api.github.com"
-    SUPPORTED_PRIMARY_LANGUAGES = {"python", "javascript", "typescript", "html", "css"}
+    SUPPORTED_PRIMARY_LANGUAGES = {
+        "python",
+        "javascript",
+        "typescript",
+        "html",
+        "css",
+        "jupyter notebook",
+    }
 
     def __init__(
         self,
@@ -168,7 +175,7 @@ class GitHubRepoFetcher:
         stack = detect_stack_profile(path)
         if stack != "mixed_unknown":
             return True
-        for pattern in ("*.html", "*.css", "*.js", "*.ts", "*.py"):
+        for pattern in ("*.html", "*.css", "*.js", "*.ts", "*.py", "*.ipynb"):
             if any(path.glob(pattern)) or any(path.glob(f"**/{pattern}")):
                 return True
         return False

@@ -83,7 +83,12 @@ def detect_stack_profile(repo_path: Path) -> str:
     """
     path = Path(repo_path)
 
-    has_python_files = any(path.glob("*.py")) or any(path.glob("**/*.py"))
+    has_python_files = (
+        any(path.glob("*.py"))
+        or any(path.glob("**/*.py"))
+        or any(path.glob("*.ipynb"))
+        or any(path.glob("**/*.ipynb"))
+    )
     has_python_manifests = any(
         (path / file_name).exists()
         for file_name in (
@@ -528,6 +533,101 @@ class EnhancedRepositoryEvaluator:
             result.append(py_file)
         return result
 
+    def _iter_notebook_files(self, include_tests: bool = True) -> List[Path]:
+        """
+        Returns Jupyter notebook files with service-directory filtering.
+        """
+        excluded_dirs = {
+            ".git",
+            ".hg",
+            ".svn",
+            ".venv",
+            "venv",
+            "env",
+            "__pycache__",
+            "site-packages",
+            "dist",
+            "build",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".tox",
+            "node_modules",
+        }
+        result: List[Path] = []
+        for notebook_file in self.repo_path.rglob("*.ipynb"):
+            try:
+                rel_parts = notebook_file.relative_to(self.repo_path).parts
+            except ValueError:
+                continue
+
+            if any(part in excluded_dirs for part in rel_parts):
+                continue
+
+            if not include_tests:
+                if "tests" in rel_parts or notebook_file.name.startswith("test_"):
+                    continue
+
+            result.append(notebook_file)
+        return result
+
+    def _sanitize_notebook_source(self, source: Any) -> str:
+        if isinstance(source, str):
+            lines = source.splitlines(keepends=True)
+        elif isinstance(source, list):
+            lines = [str(line) for line in source]
+        else:
+            return ""
+
+        # Notebook magics/shell commands are not valid Python AST input.
+        if any(line.lstrip().startswith("%%") for line in lines):
+            return ""
+
+        sanitized_lines: List[str] = []
+        for line in lines:
+            stripped = line.lstrip()
+            if stripped.startswith("%") or stripped.startswith("!"):
+                continue
+            sanitized_lines.append(line)
+        return "".join(sanitized_lines)
+
+    def _extract_notebook_code(self, notebook_file: Path) -> str:
+        try:
+            payload = json.loads(_safe_read_text(notebook_file))
+        except (ValueError, TypeError):
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+
+        cells = payload.get("cells")
+        if not isinstance(cells, list):
+            return ""
+
+        chunks: List[str] = []
+        for cell in cells:
+            if not isinstance(cell, dict):
+                continue
+            if cell.get("cell_type") != "code":
+                continue
+            sanitized_source = self._sanitize_notebook_source(cell.get("source", []))
+            if sanitized_source.strip():
+                chunks.append(sanitized_source)
+        return "\n\n".join(chunks)
+
+    def _iter_python_sources(self, include_tests: bool = True) -> List[Tuple[Path, str]]:
+        """
+        Returns Python source bodies from .py files and notebook code cells.
+        """
+        result: List[Tuple[Path, str]] = []
+        for py_file in self._iter_python_files(include_tests=include_tests):
+            content = _safe_read_text(py_file)
+            if content:
+                result.append((py_file, content))
+        for notebook_file in self._iter_notebook_files(include_tests=include_tests):
+            content = self._extract_notebook_code(notebook_file)
+            if content:
+                result.append((notebook_file, content))
+        return result
+
     def _python_content_contains(
         self, keywords: List[str], include_tests: bool = True
     ) -> bool:
@@ -536,11 +636,8 @@ class EnhancedRepositoryEvaluator:
         Checks keyword presence across project Python code.
         """
         lowered = [kw.lower() for kw in keywords]
-        for py_file in self._iter_python_files(include_tests=include_tests):
-            try:
-                content = py_file.read_text(errors="ignore").lower()
-            except (IOError, OSError, PermissionError):
-                continue
+        for _, source in self._iter_python_sources(include_tests=include_tests):
+            content = source.lower()
             if any(kw in content for kw in lowered):
                 return True
         return False
@@ -1505,11 +1602,11 @@ class EnhancedRepositoryEvaluator:
         )
         has_migrations = bool(migration_files) or has_alembic
 
-        py_files = self._iter_python_files(include_tests=False)
+        python_sources = self._iter_python_sources(include_tests=False)
         index_hits = 0
         constraint_hits = 0
-        for py_file in py_files:
-            content = _safe_read_text(py_file).lower()
+        for _, source in python_sources:
+            content = source.lower()
             if not content:
                 continue
             index_hits += len(
@@ -1549,7 +1646,7 @@ class EnhancedRepositoryEvaluator:
         secret_files = self._find_potential_secret_files()
 
         has_backend_or_data_artifacts = bool(
-            py_files
+            python_sources
             or backend_frameworks
             or migration_files
             or sql_files
@@ -1777,7 +1874,7 @@ class EnhancedRepositoryEvaluator:
         """
         backend_frameworks = self._detect_backend_frameworks()
         has_backend = bool(
-            self._iter_python_files(include_tests=False) or backend_frameworks
+            self._iter_python_sources(include_tests=False) or backend_frameworks
         )
         has_frontend = bool(
             self._iter_frontend_files(include_tests=False)
@@ -2179,20 +2276,20 @@ class EnhancedRepositoryEvaluator:
         Оценка: Code Complexity (макс 5 баллов)
         Evaluation: Code Complexity (max 5 points)
         """
-        py_files = self._iter_python_files(include_tests=False)
-        if not py_files:
+        python_sources = self._iter_python_sources(include_tests=False)
+        if not python_sources:
             return self._make_result(
                 "code_complexity",
                 None,
                 method="measured",
-                note="no Python files found to measure complexity",
+                note="no Python sources found to measure complexity",
             )
 
         complexities: List[int] = []
         parse_errors = 0
-        for py_file in py_files:
+        for _, source in python_sources:
             try:
-                tree = ast.parse(py_file.read_text(errors="ignore"))
+                tree = ast.parse(source)
             except (SyntaxError, ValueError, IOError, OSError):
                 parse_errors += 1
                 continue
@@ -2239,15 +2336,15 @@ class EnhancedRepositoryEvaluator:
         Оценка: Type Hints Coverage % (макс 5 баллов)
         Evaluation: Type Hints Coverage % (max 5 points)
         """
-        py_files = self._iter_python_files(include_tests=False)
-        if py_files:
+        python_sources = self._iter_python_sources(include_tests=False)
+        if python_sources:
             total_functions = 0
             hinted_functions = 0
             parse_errors = 0
 
-            for py_file in py_files:
+            for _, source in python_sources:
                 try:
-                    tree = ast.parse(py_file.read_text(errors="ignore"))
+                    tree = ast.parse(source)
                 except (SyntaxError, ValueError, IOError, OSError):
                     parse_errors += 1
                     continue
@@ -2915,22 +3012,22 @@ class EnhancedRepositoryEvaluator:
         Оценка: Docstring Coverage (макс 5 баллов)
         Evaluation: Docstring Coverage (max 5 points)
         """
-        py_files = self._iter_python_files(include_tests=False)
-        if not py_files:
+        python_sources = self._iter_python_sources(include_tests=False)
+        if not python_sources:
             return self._make_result(
                 "docstrings",
                 None,
                 method="measured",
-                note="no Python files found for docstring analysis",
+                note="no Python sources found for docstring analysis",
             )
 
         total_functions = 0
         documented_functions = 0
         parse_errors = 0
 
-        for py_file in py_files:
+        for _, source in python_sources:
             try:
-                tree = ast.parse(py_file.read_text(errors="ignore"))
+                tree = ast.parse(source)
             except (SyntaxError, ValueError, IOError, OSError):
                 parse_errors += 1
                 continue
@@ -2976,22 +3073,18 @@ class EnhancedRepositoryEvaluator:
         Оценка: Error Handling & Logging (макс 3 балла)
         Evaluation: Error Handling & Logging (max 3 points)
         """
-        py_files = self._iter_python_files(include_tests=False)
-        if not py_files:
+        python_sources = self._iter_python_sources(include_tests=False)
+        if not python_sources:
             return self._make_result(
                 "logging",
                 None,
                 method="heuristic",
-                note="no Python files found for logging analysis",
+                note="no Python sources found for logging analysis",
             )
 
         total_files = 0
         logging_files = 0
-        for py_file in py_files:
-            try:
-                content = py_file.read_text(errors="ignore")
-            except (IOError, OSError, PermissionError):
-                continue
+        for _, content in python_sources:
             total_files += 1
             if (
                 "import logging" in content
@@ -3003,7 +3096,7 @@ class EnhancedRepositoryEvaluator:
 
         if total_files == 0:
             return self._make_result(
-                "logging", None, method="heuristic", note="Python files unreadable"
+                "logging", None, method="heuristic", note="Python sources unreadable"
             )
 
         logging_percent = (logging_files / total_files) * 100
@@ -3174,8 +3267,8 @@ class EnhancedRepositoryEvaluator:
         else:
             score = 0.0
 
-        py_files_exist = bool(self._iter_python_files(include_tests=True))
-        if not py_files_exist and not has_postman and not has_openapi:
+        python_sources_exist = bool(self._iter_python_sources(include_tests=True))
+        if not python_sources_exist and not has_postman and not has_openapi:
             return self._make_result(
                 "api_docs",
                 None,

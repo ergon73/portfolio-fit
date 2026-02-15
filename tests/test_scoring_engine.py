@@ -529,6 +529,34 @@ class ScoringEngineTests(unittest.TestCase):
             self.assertIn("repo_py", names)
             self.assertIn("repo_fe", names)
 
+    def test_discover_python_repos_includes_notebook_only_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nb_repo = root / "repo_nb"
+            (nb_repo / ".git").mkdir(parents=True)
+            (nb_repo / "analysis.ipynb").write_text(
+                json.dumps(
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "source": [
+                                    "def add(x: int, y: int) -> int:\n",
+                                    "    return x + y\n",
+                                ],
+                            }
+                        ],
+                        "metadata": {},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            discovered = discover_python_repos(root, recursive=False)
+            self.assertEqual([path.name for path in discovered], ["repo_nb"])
+
     def test_detect_stack_profile_for_common_layouts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -553,6 +581,31 @@ class ScoringEngineTests(unittest.TestCase):
                 '{"name":"frontend","version":"1.0.0"}', encoding="utf-8"
             )
             self.assertEqual(detect_stack_profile(frontend), "node_frontend")
+
+    def test_detect_stack_profile_notebook_only_repo_is_python_backend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir(parents=True)
+            (repo / "eda.ipynb").write_text(
+                json.dumps(
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "source": [
+                                    "print('hello')\n",
+                                ],
+                            }
+                        ],
+                        "metadata": {},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(detect_stack_profile(repo), "python_backend")
 
     def test_node_frontend_marks_python_specific_criteria_not_applicable(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -632,6 +685,38 @@ class ScoringEngineTests(unittest.TestCase):
 
             self.assertEqual(result.status, "not_applicable")
             self.assertIsNone(result.score)
+
+    def test_type_hints_uses_jupyter_notebook_code_cells(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "analysis.ipynb").write_text(
+                json.dumps(
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "source": [
+                                    "%matplotlib inline\n",
+                                    "def add(x: int, y: int) -> int:\n",
+                                    "    return x + y\n",
+                                ],
+                            }
+                        ],
+                        "metadata": {},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            evaluator = EnhancedRepositoryEvaluator(repo)
+            result = evaluator.evaluate_type_hints()
+
+            self.assertEqual(result.status, "known")
+            self.assertEqual(result.method, "measured")
+            self.assertEqual(result.score, 5.0)
+            self.assertIn("hinted functions: 1/1", result.note)
 
 
 if __name__ == "__main__":
